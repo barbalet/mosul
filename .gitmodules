@@ -1,0 +1,3 @@
+[submodule "modernerKrieg"]
+	path = modernerKrieg
+	url = git@github.com:barbalet/modernerKrieg.git
