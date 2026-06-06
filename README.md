@@ -65,6 +65,8 @@ The top-down sprites are also line-art assets. The current tactical scale uses `
 
 The engine work lives in the `modernerKrieg` submodule. It is a fresh tactical engine for MOSUL, with a portable C simulation core, CMake build, deterministic tests, renderer-independent board logic, and an experimental SDL3 application shell.
 
+See [PLAN.md](PLAN.md) for the playable-demo development plan.
+
 SDL3 is still an open question. If it proves workable for the desired game feel and deployment path, MOSUL will use it. If it does not, the contingency is a new SwiftUI GUI around the same underlying tactical model, following lessons learned from the existing macOS work in `guderian`.
 
 To inspect or build the engine:
