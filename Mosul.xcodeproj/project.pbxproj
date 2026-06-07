@@ -11,6 +11,7 @@
 		B10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* ContentView.swift */; };
 		B10000000000000000000003 /* MosulGameModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* MosulGameModel.swift */; };
 		B10000000000000000000004 /* TacticalMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* TacticalMapView.swift */; };
+		B10000000000000000000013 /* MosulVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000016 /* MosulVersion.swift */; };
 		B10000000000000000000005 /* MosulEngineBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* MosulEngineBridge.c */; };
 		B10000000000000000000006 /* mk_core.c in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* mk_core.c */; };
 		B10000000000000000000007 /* mk_log.c in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* mk_log.c */; };
@@ -26,6 +27,7 @@
 		B20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/ContentView.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000003 /* MosulGameModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulGameModel.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000004 /* TacticalMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/TacticalMapView.swift; sourceTree = SOURCE_ROOT; };
+		B20000000000000000000016 /* MosulVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulVersion.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000005 /* MosulEngineBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Mac/Mosul/Bridge/MosulEngineBridge.c; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000006 /* MosulEngineBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Mac/Mosul/Bridge/MosulEngineBridge.h; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000007 /* Mosul-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Mac/Mosul/Bridge/Mosul-Bridging-Header.h; sourceTree = SOURCE_ROOT; };
@@ -62,10 +64,11 @@
 		};
 		B40000000000000000000002 /* Mac */ = {
 			isa = PBXGroup;
-			children = (
-				B20000000000000000000001 /* MosulApp.swift */,
-				B20000000000000000000002 /* ContentView.swift */,
-				B20000000000000000000003 /* MosulGameModel.swift */,
+				children = (
+					B20000000000000000000001 /* MosulApp.swift */,
+					B20000000000000000000016 /* MosulVersion.swift */,
+					B20000000000000000000002 /* ContentView.swift */,
+					B20000000000000000000003 /* MosulGameModel.swift */,
 				B20000000000000000000004 /* TacticalMapView.swift */,
 				B20000000000000000000005 /* MosulEngineBridge.c */,
 				B20000000000000000000006 /* MosulEngineBridge.h */,
@@ -165,8 +168,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B10000000000000000000001 /* MosulApp.swift in Sources */,
-				B10000000000000000000002 /* ContentView.swift in Sources */,
+					B10000000000000000000001 /* MosulApp.swift in Sources */,
+					B10000000000000000000013 /* MosulVersion.swift in Sources */,
+					B10000000000000000000002 /* ContentView.swift in Sources */,
 				B10000000000000000000003 /* MosulGameModel.swift in Sources */,
 				B10000000000000000000004 /* TacticalMapView.swift in Sources */,
 				B10000000000000000000005 /* MosulEngineBridge.c in Sources */,
@@ -307,10 +311,11 @@
 		B80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+					CODE_SIGNING_ALLOWED = NO;
+					CODE_SIGN_STYLE = Automatic;
+					COMBINE_HIDPI_IMAGES = YES;
+					CURRENT_PROJECT_VERSION = 1;
+					GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/Mac/Mosul/Bridge",
 					"$(SRCROOT)/modernerKrieg/engine/core/include",
@@ -339,10 +344,11 @@
 		B80000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+					CODE_SIGNING_ALLOWED = NO;
+					CODE_SIGN_STYLE = Automatic;
+					COMBINE_HIDPI_IMAGES = YES;
+					CURRENT_PROJECT_VERSION = 1;
+					GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/Mac/Mosul/Bridge",
 					"$(SRCROOT)/modernerKrieg/engine/core/include",

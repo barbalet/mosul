@@ -1,0 +1,223 @@
+# MOSUL Release Procedure
+
+This checklist describes the release flow for MOSUL when shipping the native macOS SwiftUI application built from `Mosul.xcodeproj`. It creates Apple Silicon and Intel DMG packages, plus a source archive for the exact tagged Mosul source and the linked `modernerKrieg` submodule source used to build those artifacts.
+
+Before starting, decide the new release number and use it as the `VERSION` input throughout this checklist. Set `VERSION` without a leading `v`; the Git tag adds the leading `v` separately. For example, the current Mosul app version `0.1` uses `VERSION=0.1` and tag `v0.1`.
+
+## 1. Prepare the Version
+
+Update the Mosul app version in `Mac/Mosul/App/MosulVersion.swift`:
+
+```text
+shortVersion
+build
+```
+
+Update the Xcode target build settings in `Mosul.xcodeproj/project.pbxproj` for both Debug and Release:
+
+```text
+MARKETING_VERSION = <VERSION>;
+CURRENT_PROJECT_VERSION = <BUILD>;
+```
+
+Use the same `VERSION` value in artifact names without the leading `v`. The Xcode target, scheme, app bundle, and executable are all named `Mosul`.
+
+`modernerKrieg` does not drive Mosul release numbering yet. For now, capture its exact linked submodule commit in the Mosul release by committing the desired gitlink and packaging the initialized submodule source into `dist/mosul-src-<VERSION>.zip`.
+
+## 2. Write the Release Synopsis
+
+Create an approximately 200-word synopsis for this version before packaging the release. Summarize the user-facing MOSUL Mac app changes first, then call out major `modernerKrieg` core, scenario, asset, replay, file-format, source-compatibility, or platform changes that matter to downstream users. Use this synopsis as the GitHub release description.
+
+Include the `modernerKrieg` submodule commit in the release notes:
+
+```bash
+git submodule status --recursive
+```
+
+## 3. Lock And Tag The Source
+
+Make sure the desired `modernerKrieg` revision is checked out, initialized, and committed as the Mosul submodule gitlink before tagging:
+
+```bash
+git submodule update --init --recursive
+git status --short
+git submodule status --recursive
+```
+
+After the version number is decided and the final release commit is ready, tag the Mosul source code with the matching version number. The tag must point at the exact commit used to build the DMGs and source archive.
+
+```bash
+VERSION="<VERSION>"
+git tag -a "v${VERSION}" -m "MOSUL ${VERSION}"
+git push origin "v${VERSION}"
+```
+
+If the release version changes, update `VERSION` and recreate the tag before publishing it.
+
+## 4. Build Apple Silicon
+
+From the repository root:
+
+```bash
+mkdir -p dist
+VERSION="<VERSION>"
+xcodebuild \
+  -project Mosul.xcodeproj \
+  -scheme Mosul \
+  -configuration Release \
+  -destination "generic/platform=macOS" \
+  -derivedDataPath build/release-derived-data-arm64 \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=NO \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+```
+
+The unsigned build output is:
+
+```text
+build/release-derived-data-arm64/Build/Products/Release/Mosul.app
+```
+
+Ad-hoc sign the generated app if Developer ID signing is not available:
+
+```bash
+codesign --force --deep --sign - "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
+```
+
+If you have Developer ID and notarization credentials, sign and notarize instead of ad-hoc signing:
+
+```bash
+VERSION="<VERSION>"
+codesign --force --deep --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
+ditto -c -k --keepParent "build/release-derived-data-arm64/Build/Products/Release/Mosul.app" "dist/mosul-mac-silicon-${VERSION}-notary.zip"
+xcrun notarytool submit "dist/mosul-mac-silicon-${VERSION}-notary.zip" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
+```
+
+Package the DMG:
+
+```bash
+VERSION="<VERSION>"
+hdiutil create \
+  -volname "MOSUL ${VERSION} Apple Silicon" \
+  -srcfolder "build/release-derived-data-arm64/Build/Products/Release/Mosul.app" \
+  -format UDZO \
+  -ov \
+  "dist/mosul-mac-silicon-${VERSION}.dmg"
+```
+
+Verify the architecture:
+
+```bash
+lipo -info "build/release-derived-data-arm64/Build/Products/Release/Mosul.app/Contents/MacOS/Mosul"
+```
+
+## 5. Build Intel
+
+```bash
+VERSION="<VERSION>"
+xcodebuild \
+  -project Mosul.xcodeproj \
+  -scheme Mosul \
+  -configuration Release \
+  -destination "generic/platform=macOS" \
+  -derivedDataPath build/release-derived-data-x86_64 \
+  ARCHS=x86_64 \
+  ONLY_ACTIVE_ARCH=NO \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+```
+
+The unsigned build output is:
+
+```text
+build/release-derived-data-x86_64/Build/Products/Release/Mosul.app
+```
+
+Ad-hoc sign the generated app if Developer ID signing is not available:
+
+```bash
+codesign --force --deep --sign - "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app"
+```
+
+If you have Developer ID and notarization credentials, use the same signing, notary submission, and stapling flow described in the Apple Silicon section, with the x86_64 app path and an Intel-specific notary zip name.
+
+Package the DMG:
+
+```bash
+VERSION="<VERSION>"
+hdiutil create \
+  -volname "MOSUL ${VERSION} Intel" \
+  -srcfolder "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app" \
+  -format UDZO \
+  -ov \
+  "dist/mosul-mac-intel-${VERSION}.dmg"
+```
+
+Verify the architecture:
+
+```bash
+lipo -info "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app/Contents/MacOS/Mosul"
+```
+
+## 6. Create The Source Package
+
+Do not rely on GitHub's automatic source archives for Mosul releases. Those archives may omit the populated `modernerKrieg` submodule source. Create and attach the Mosul source archive below instead.
+
+Stage the source into a versioned folder so the archive has a stable top-level directory. Exclude VCS folders, build outputs, release artifacts, local Xcode user state, and Finder metadata.
+
+```bash
+VERSION="<VERSION>"
+SRC_ROOT="mosul-${VERSION}"
+SRC_STAGE="$(mktemp -d)/${SRC_ROOT}"
+git submodule update --init --recursive
+rsync -a ./ "$SRC_STAGE"/ \
+  --exclude .git \
+  --exclude build \
+  --exclude dist \
+  --exclude "*.xcuserstate" \
+  --exclude "xcuserdata" \
+  --exclude ".DS_Store"
+git rev-parse HEAD > "$SRC_STAGE/RELEASE_MOSUL_REVISION.txt"
+git -C modernerKrieg rev-parse HEAD > "$SRC_STAGE/RELEASE_MODERNERKRIEG_REVISION.txt"
+git submodule status --recursive > "$SRC_STAGE/RELEASE_SUBMODULES.txt"
+test -f "$SRC_STAGE/modernerKrieg/CMakeLists.txt"
+test -f "$SRC_STAGE/modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003/overview.png"
+ditto -c -k --keepParent "$SRC_STAGE" "dist/mosul-src-${VERSION}.zip"
+```
+
+The resulting zip intentionally contains `modernerKrieg` source, scenarios, manifests, and runtime PNG assets from the linked submodule checkout.
+
+## 7. Verify Release Artifacts
+
+```bash
+VERSION="<VERSION>"
+ls -lh \
+  "dist/mosul-mac-silicon-${VERSION}.dmg" \
+  "dist/mosul-mac-intel-${VERSION}.dmg" \
+  "dist/mosul-src-${VERSION}.zip"
+shasum -a 256 \
+  "dist/mosul-mac-silicon-${VERSION}.dmg" \
+  "dist/mosul-mac-intel-${VERSION}.dmg" \
+  "dist/mosul-src-${VERSION}.zip"
+```
+
+Verify the source archive contains the submodule payload:
+
+```bash
+VERSION="<VERSION>"
+VERIFY_DIR="$(mktemp -d)"
+ditto -x -k "dist/mosul-src-${VERSION}.zip" "$VERIFY_DIR"
+test -f "$VERIFY_DIR/mosul-${VERSION}/modernerKrieg/CMakeLists.txt"
+test -f "$VERIFY_DIR/mosul-${VERSION}/modernerKrieg/engine/core/include/mk_core.h"
+test -f "$VERIFY_DIR/mosul-${VERSION}/modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003/overview.png"
+```
+
+Attach these files to the GitHub release:
+
+```text
+dist/mosul-mac-silicon-<VERSION>.dmg
+dist/mosul-mac-intel-<VERSION>.dmg
+dist/mosul-src-<VERSION>.zip
+```

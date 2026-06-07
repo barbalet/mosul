@@ -20,9 +20,9 @@ struct ContentView: View {
     private var header: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.scenarioName)
+                Text(MosulVersion.displayName)
                     .font(.headline)
-                Text("\(model.mapName)  |  Tick \(model.tick)")
+                Text("\(model.scenarioName)  |  \(model.mapName)  |  Tick \(model.tick)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
