@@ -16,6 +16,18 @@ The demo combat space is a `500 m x 500 m` Market / Commercial Streets cluster. 
 
 The map is designed for multi-layer play. Ground streets, courtyards, shopfronts, and building interiors need to coexist with rooftop movement, upper-floor fire, stair access, breach points, rubble, blocked roads, and changing cover. The engine work is expected to support streamed map tiles rather than one enormous always-loaded bitmap.
 
+The current engine scenario now loads from validated data in the `modernerKrieg` submodule instead of only from hard-coded C fixtures. The first public scenario file is:
+
+```text
+modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
+```
+
+The matching map, sprite, and marker manifests are also present under:
+
+```text
+modernerKrieg/assets/mosul/manifests/
+```
+
 ## Tactical Identity
 
 MOSUL is commanded at unit scale, but it should preserve meaningful detail inside units. A squad should not be just one counter with a hit point number. Soldiers need roles, weapons, ammo, wounds, suppression, stance, exposure, and equipment. A medic, breacher, automatic rifleman, marksman, squad leader, vehicle crew, or RPG gunner should change the tactical problem.
@@ -61,25 +73,53 @@ The top-down sprites are also line-art assets. The current tactical scale uses `
 
 ![128 px weapon sheet](assets/readme/16_us_ally_weapons_topdown_128.png)
 
+The `modernerKrieg` submodule now includes a larger runtime asset base: complete source-angle infantry, weapon, and vehicle sprites, 896 rendered runtime-facing PNGs, a runtime map overview for the Market / Commercial Streets scenario, and validated C-readable manifests for map, sprite, and marker metadata. Source art remains preserved separately from generated/runtime assets.
+
 ## Engine Direction
 
-The engine work lives in the `modernerKrieg` submodule. It is a fresh tactical engine for MOSUL, with a portable C simulation core, CMake build, deterministic tests, renderer-independent board logic, and an experimental SDL3 application shell.
+The engine work lives in the `modernerKrieg` submodule. It is now a portable C + CMake tactical engine with validated data loading, asset-manifest parsing, deterministic AI/autoplay tools, replay validation, renderer-independent board projection, and PNG-backed runtime asset handoff for native frontends.
 
 See [PLAN.md](PLAN.md) for the playable-demo development plan.
 
-SDL3 is still an open question. If it proves workable for the desired game feel and deployment path, MOSUL will use it. If it does not, the contingency is a new SwiftUI GUI around the same underlying tactical model, following lessons learned from the existing macOS work in `guderian`.
+The SDL experiment has been removed from the active engine path. Launchable interfaces should now be platform-native shells over the same portable C libraries: a Mac frontend first, then a Windows frontend. The command-line tools remain the deterministic testing, replay, and balancing surface.
 
 To inspect or build the engine:
 
 ```sh
 git submodule update --init --recursive
 cd modernerKrieg
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --preset headless
+cmake --build --preset headless
+ctest --preset headless
 ```
 
-If SDL3 is available, CMake can build the optional app target. If SDL3 is not available, the portable core and tests should still build.
+Run the current headless smoke scenario:
+
+```sh
+./build/headless/bin/mk_headless_run --steps 10
+```
+
+Run both tactical sides under deterministic AI:
+
+```sh
+./build/headless/bin/mk_headless_run --ai-only --max-ticks 10
+```
+
+Write and validate a deterministic replay:
+
+```sh
+./build/headless/bin/mk_headless_run \
+  --ai-only \
+  --max-ticks 10 \
+  --quiet \
+  --replay build/headless/mosul_ai.mkreplay
+
+./build/headless/bin/mk_replay_validate \
+  --expect-result MK_OK \
+  build/headless/mosul_ai.mkreplay
+```
+
+The current headless CTest suite validates the portable core, board-view projection, fixed loop, AI behavior, asset manifests, scenario data, headless runs, replay output, balance checks, and core/frontend boundary.
 
 ## Development Legacy
 
@@ -95,10 +135,22 @@ MOSUL is not a reskin of a World War II system. Modern Mosul needs its own rules
 mosul/
   README.md
   assets/readme/              public README artwork
-  modernerKrieg/              tactical engine and Mosul source assets
+  modernerKrieg/              tactical engine, data, tools, and runtime assets
 ```
 
-`modernerKrieg/assets/mosul/source/` contains the source art and map assets currently selected for the 2003 demo. Engine-ready sprites, atlases, tiles, collision data, and runtime map products should be generated from source assets rather than edited directly in place.
+Important `modernerKrieg` paths:
+
+- `engine/core/`: portable simulation, rules, state, scoring, and replay-facing data.
+- `engine/render/`: renderer-independent board and overlay projection.
+- `engine/assets/`: portable map, sprite, and marker manifest parsing/validation.
+- `engine/ai/`: deterministic controller policies that emit normal core orders.
+- `engine/tools/autoplay/`: headless run, replay validation/playback, and AI-vs-AI tools.
+- `game/mosul/scenarios/`: validated Mosul scenario data.
+- `assets/mosul/source/`: unmodified source art and map assets.
+- `assets/mosul/runtime/`: generated or copied runtime products, including the current map overview and rendered sprites.
+- `assets/mosul/manifests/`: map, sprite, and marker manifests validated by C tests.
+
+Source art should remain unmodified. Engine-ready sprites, atlases, tiles, collision data, and runtime map products should be generated from source assets rather than edited directly in place.
 
 ## Public Discussion
 
