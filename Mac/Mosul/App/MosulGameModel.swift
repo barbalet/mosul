@@ -1,0 +1,385 @@
+import Foundation
+import SwiftUI
+
+private func bridgeString<T>(_ value: T) -> String {
+    var copy = value
+    return withUnsafePointer(to: &copy) { pointer in
+        pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<T>.size) { cString in
+            String(cString: cString)
+        }
+    }
+}
+
+struct MosulUnit: Identifiable {
+    let id: UInt32
+    let name: String
+    let side: Int32
+    let order: Int32
+    let status: Int32
+    let x: CGFloat
+    let y: CGFloat
+    let targetX: CGFloat
+    let targetY: CGFloat
+    let hasTarget: Bool
+    let hidden: Bool
+    let revealed: Bool
+    let selected: Bool
+    let suppression: Int32
+    let morale: Int32
+    let soldierCount: Int
+    let casualtyCount: Int
+}
+
+struct MosulObjective: Identifiable {
+    let id: UInt32
+    let name: String
+    let label: String
+    let controllingSide: Int32
+    let x: CGFloat
+    let y: CGFloat
+    let radius: CGFloat
+    let value: Int32
+}
+
+struct MosulCivilian: Identifiable {
+    let id: UInt32
+    let name: String
+    let x: CGFloat
+    let y: CGFloat
+    let state: Int32
+    let stress: Int32
+    let risk: Int32
+}
+
+struct MosulContact: Identifiable {
+    let id: UInt32
+    let tick: UInt32
+    let kind: Int32
+    let side: Int32
+    let x: CGFloat
+    let y: CGFloat
+    let intensity: Int32
+    let confidence: Int32
+    let visible: Bool
+    let resolved: Bool
+}
+
+struct MosulScore {
+    var total: Int32 = 0
+    var objectivePoints: Int32 = 0
+    var civilianRiskPenalty: Int32 = 0
+    var casualtyPenalty: Int32 = 0
+    var timePenalty: Int32 = 0
+    var playerCasualties: Int32 = 0
+    var opforCasualties: Int32 = 0
+    var civilianCasualties: Int32 = 0
+    var civilianRisk: Int32 = 0
+    var controlledObjectives: UInt32 = 0
+    var contestedObjectives: UInt32 = 0
+    var outcome: Int32 = 0
+}
+
+enum MosulMapMode: String, CaseIterable, Identifiable {
+    case select = "Select"
+    case move = "Move"
+    case investigate = "Investigate"
+
+    var id: String { rawValue }
+}
+
+@MainActor
+final class MosulGameModel: ObservableObject {
+    @Published var scenarioName = "MOSUL"
+    @Published var briefing = ""
+    @Published var mapName = ""
+    @Published var mapOverviewPath = ""
+    @Published var lastError = ""
+    @Published var tick: UInt32 = 0
+    @Published var mapWidth: CGFloat = 500
+    @Published var mapHeight: CGFloat = 500
+    @Published var units: [MosulUnit] = []
+    @Published var objectives: [MosulObjective] = []
+    @Published var civilians: [MosulCivilian] = []
+    @Published var contacts: [MosulContact] = []
+    @Published var score = MosulScore()
+    @Published var mode: MosulMapMode = .select
+
+    private var engine: OpaquePointer?
+    let modernerKriegRoot: String
+
+    init() {
+        modernerKriegRoot = Self.findModernerKriegRoot()
+        engine = modernerKriegRoot.withCString { root in
+            MosulEngineCreate(root)
+        }
+        refresh()
+    }
+
+    deinit {
+        if let engine {
+            MosulEngineDestroy(engine)
+        }
+    }
+
+    var selectedUnit: MosulUnit? {
+        units.first(where: { $0.selected })
+    }
+
+    func reset() {
+        guard let engine else { return }
+        _ = MosulEngineReset(engine)
+        refresh()
+    }
+
+    func step() {
+        guard let engine else { return }
+        _ = MosulEngineStep(engine, 1)
+        refresh()
+    }
+
+    func runAI(steps: UInt32 = 1) {
+        guard let engine else { return }
+        _ = MosulEngineRunAI(engine, steps)
+        refresh()
+    }
+
+    func select(unitID: UInt32) {
+        guard let engine else { return }
+        _ = MosulEngineSelectUnit(engine, unitID)
+        refresh()
+    }
+
+    func issueHold() {
+        issueOrder(1)
+    }
+
+    func issueRally() {
+        issueOrder(8)
+    }
+
+    func issueOverwatch() {
+        issueOrder(6)
+    }
+
+    func handleMapTap(x: CGFloat, y: CGFloat) {
+        guard let engine else { return }
+
+        switch mode {
+        case .select:
+            _ = MosulEngineSelectUnitAt(engine, Float(x), Float(y))
+        case .move:
+            _ = MosulEngineIssueSelectedMove(engine, Float(x), Float(y))
+            mode = .select
+        case .investigate:
+            _ = MosulEngineIssueSelectedInvestigate(engine, Float(x), Float(y))
+            mode = .select
+        }
+
+        refresh()
+    }
+
+    func refresh() {
+        guard let engine else {
+            lastError = "Unable to create Mosul engine. Expected modernerKrieg at \(modernerKriegRoot)."
+            return
+        }
+
+        scenarioName = String(cString: MosulEngineScenarioName(engine))
+        briefing = String(cString: MosulEngineBriefing(engine))
+        mapName = String(cString: MosulEngineMapName(engine))
+        mapOverviewPath = String(cString: MosulEngineMapOverviewPath(engine))
+        lastError = String(cString: MosulEngineLastError(engine))
+        tick = MosulEngineTick(engine)
+        mapWidth = CGFloat(MosulEngineMapWidthM(engine))
+        mapHeight = CGFloat(MosulEngineMapHeightM(engine))
+
+        refreshUnits(engine)
+        refreshObjectives(engine)
+        refreshCivilians(engine)
+        refreshContacts(engine)
+        refreshScore(engine)
+    }
+
+    private func issueOrder(_ order: Int32) {
+        guard let engine else { return }
+        _ = MosulEngineIssueSelectedOrder(engine, order)
+        refresh()
+    }
+
+    private func refreshUnits(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulUnitSummary(), count: 64)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyUnits(engine, buffer.baseAddress, buffer.count)
+        }
+
+        units = raw.prefix(Int(count)).map { item in
+            MosulUnit(
+                id: item.id,
+                name: bridgeString(item.name),
+                side: item.side,
+                order: item.order,
+                status: item.status,
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                targetX: CGFloat(item.target_x_m),
+                targetY: CGFloat(item.target_y_m),
+                hasTarget: item.has_target,
+                hidden: item.hidden,
+                revealed: item.revealed,
+                selected: item.selected,
+                suppression: item.suppression,
+                morale: item.morale,
+                soldierCount: item.soldier_count,
+                casualtyCount: item.casualty_count
+            )
+        }
+    }
+
+    private func refreshObjectives(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulObjectiveSummary(), count: 16)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyObjectives(engine, buffer.baseAddress, buffer.count)
+        }
+
+        objectives = raw.prefix(Int(count)).map { item in
+            MosulObjective(
+                id: item.id,
+                name: bridgeString(item.name),
+                label: bridgeString(item.label),
+                controllingSide: item.controlling_side,
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                radius: CGFloat(item.radius_m),
+                value: item.value
+            )
+        }
+    }
+
+    private func refreshCivilians(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulCivilianSummary(), count: 128)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyCivilians(engine, buffer.baseAddress, buffer.count)
+        }
+
+        civilians = raw.prefix(Int(count)).map { item in
+            MosulCivilian(
+                id: item.id,
+                name: bridgeString(item.name),
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                state: item.state,
+                stress: item.stress,
+                risk: item.risk
+            )
+        }
+    }
+
+    private func refreshContacts(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulContactSummary(), count: 64)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyContacts(engine, buffer.baseAddress, buffer.count)
+        }
+
+        contacts = raw.prefix(Int(count)).map { item in
+            MosulContact(
+                id: item.id,
+                tick: item.tick,
+                kind: item.kind,
+                side: item.side,
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                intensity: item.intensity,
+                confidence: item.confidence,
+                visible: item.visible,
+                resolved: item.resolved
+            )
+        }
+    }
+
+    private func refreshScore(_ engine: OpaquePointer) {
+        var raw = MosulScoreSummary()
+        guard MosulEngineCopyScore(engine, &raw) else {
+            score = MosulScore()
+            return
+        }
+
+        score = MosulScore(
+            total: raw.total_score,
+            objectivePoints: raw.objective_points,
+            civilianRiskPenalty: raw.civilian_risk_penalty,
+            casualtyPenalty: raw.casualty_penalty,
+            timePenalty: raw.time_penalty,
+            playerCasualties: raw.player_casualties,
+            opforCasualties: raw.opfor_casualties,
+            civilianCasualties: raw.civilian_casualties,
+            civilianRisk: raw.civilian_risk,
+            controlledObjectives: raw.controlled_objectives,
+            contestedObjectives: raw.contested_objectives,
+            outcome: raw.outcome
+        )
+    }
+
+    private static func findModernerKriegRoot(filePath: String = #filePath) -> String {
+        var candidate = URL(fileURLWithPath: filePath).deletingLastPathComponent()
+        let fileManager = FileManager.default
+
+        for _ in 0..<10 {
+            let root = candidate.appendingPathComponent("modernerKrieg")
+            if fileManager.fileExists(atPath: root.appendingPathComponent("README.md").path) {
+                return root.path
+            }
+            candidate.deleteLastPathComponent()
+        }
+
+        return URL(fileURLWithPath: filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("../../modernerKrieg")
+            .standardized
+            .path
+    }
+}
+
+func sideName(_ side: Int32) -> String {
+    switch side {
+    case 1: return "Player"
+    case 2: return "Opposing"
+    case 3: return "Civilian"
+    default: return "Neutral"
+    }
+}
+
+func orderName(_ order: Int32) -> String {
+    switch order {
+    case 1: return "Hold"
+    case 2: return "Move"
+    case 3: return "Assault"
+    case 4: return "Fire"
+    case 5: return "Suppress"
+    case 6: return "Overwatch"
+    case 7: return "Breach"
+    case 8: return "Rally"
+    case 9: return "Withdraw"
+    case 10: return "Investigate"
+    default: return "None"
+    }
+}
+
+func statusName(_ status: Int32) -> String {
+    switch status {
+    case 1: return "Suppressed"
+    case 2: return "Pinned"
+    case 3: return "Broken"
+    default: return "Ready"
+    }
+}
+
+func contactName(_ kind: Int32) -> String {
+    switch kind {
+    case 0: return "Fire"
+    case 1: return "Reveal"
+    case 2: return "Civilian Risk"
+    case 3: return "Suspected"
+    case 4: return "False Contact"
+    default: return "Contact"
+    }
+}

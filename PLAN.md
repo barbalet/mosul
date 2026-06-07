@@ -1,17 +1,20 @@
 # MOSUL Plan
 
-`mosul` is the public project home for the MOSUL playable demo. The first public target is the 2003 Market / Commercial Streets scenario, with `modernerKrieg` providing the portable tactical engine.
+`mosul` is the public Mac SwiftUI interface and project home for the MOSUL playable demo. The first public target is the 2003 Market / Commercial Streets scenario, with `modernerKrieg` providing the portable tactical engine, scenario data, asset manifests, runtime PNGs, AI, replay, and headless validation tools.
 
 The project is ready to move from art/import work into playable-demo development. The next job is to turn the existing source art, scenario concept, and engine core into a small playable vertical slice.
 
 ## Current Public Baseline
 
-- The public README describes the 2003 Market / Commercial Streets demo direction.
+- The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
+- `Mosul.xcodeproj` now builds a native Mac SwiftUI shell from this repository.
+- `Mac/Mosul/App/` contains the SwiftUI presentation, map view, controls, and inspector.
+- `Mac/Mosul/Bridge/` contains a small C bridge over the `modernerKrieg` headers.
 - Public presentation art exists under `assets/readme/`.
-- The `modernerKrieg` engine submodule builds as a portable C/CMake project.
-- The engine already has deterministic core tests for game state, board view, selection, movement, line of sight, fire, suppression, and scenario state.
-- Source art for the 2003 demo exists under `modernerKrieg/assets/mosul/source/`.
-- The current SDL3 app shell is still experimental and should be judged against a possible SwiftUI frontend contingency.
+- The `modernerKrieg` engine submodule builds as a portable C/CMake project and remains the owner of gameplay, data loading, AI, runtime PNG assets, and validation tools.
+- The engine has deterministic coverage for core rules, board projection, scenario loading, asset manifests, AI/autoplay, replay validation, balance checks, and the core/frontend boundary.
+- Source art and generated runtime art for the 2003 demo exist under `modernerKrieg/assets/mosul/`.
+- The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 
 ## Playable Demo Target
 
@@ -45,10 +48,10 @@ The demo is playable when a user can launch one scenario, inspect the map, selec
 
 ### Engine Integration
 
-- Add runtime PNG loading and texture ownership to the SDL3 app layer or chosen frontend.
-- Add asset manifests for infantry, weapons, vehicles, markers, and map layers.
-- Render real map art before colored terrain blocks.
-- Render real unit sprites before colored unit rectangles.
+- Keep runtime PNG loading, manifests, and metadata ownership in `modernerKrieg`.
+- Use the `mosul` C bridge to expose scenario state, map paths, score, units, civilians, objectives, contacts, selection, and order commands to Swift.
+- Render the real runtime map overview before investing in tiled streaming.
+- Render real unit sprites after the bridge exposes sprite manifest/runtime ids cleanly enough for SwiftUI.
 - Keep tactical rules in the portable C core, with rendering as a view over game state.
 - Add deterministic tests for any new scenario-data parser and combat rule.
 
@@ -63,10 +66,10 @@ The demo is playable when a user can launch one scenario, inspect the map, selec
 
 ### Build And Release
 
-- Keep headless tests runnable without SDL3.
-- Verify the SDL3 app if SDL3 is available locally.
-- If SDL3 feels wrong for the desired user experience, keep the C core and build a SwiftUI frontend around it.
-- Package one macOS-first demo before broadening to Windows/Linux.
+- Keep `modernerKrieg` headless tests runnable without any native app dependency.
+- Keep `Mosul.xcodeproj` buildable from the repository root.
+- Package one macOS-first SwiftUI demo before broadening to Windows.
+- Keep all PNG assets and loaders in `modernerKrieg`; do not copy runtime art into the Mac app tree unless packaging explicitly requires a generated bundle step.
 
 ## Additional Art Needed
 
@@ -83,10 +86,10 @@ Do not pause engine development for a large new art pass. Add these assets only 
 
 ## Immediate Next Steps
 
-1. Update `modernerKrieg` to load and render PNG textures from a manifest.
-2. Create the first 2003 scenario data file and load it into the core.
-3. Render the Market / Commercial Streets map overview or first tile set in the app.
-4. Render real unit sprites for at least one U.S. squad and one opposing cell.
-5. Add visible order/selection/state markers.
-6. Add a minimal after-action result screen or log.
-7. Run headless tests and one local app smoke test before sharing the public demo.
+1. Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
+2. Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+3. Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
+4. Add player-facing after-action results from the existing C score/outcome data.
+5. Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
+6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
+7. Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.

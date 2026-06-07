@@ -1,6 +1,6 @@
 # MOSUL
 
-`mosul` is the public home for a tactical war game and playable demo set in Mosul, Iraq. The first demo target is the 2003 Market / Commercial Streets scenario: a tense post-invasion urban security fight built around patrols, checkpoints, shopfronts, rooftops, civilians, looting pressure, raids, hidden weapons, and sudden close-range contact.
+`mosul` is the public Mac SwiftUI interface and project home for a tactical war game and playable demo set in Mosul, Iraq. The first demo target is the 2003 Market / Commercial Streets scenario: a tense post-invasion urban security fight built around patrols, checkpoints, shopfronts, rooftops, civilians, looting pressure, raids, hidden weapons, and sudden close-range contact.
 
 ![2003 Market / Commercial Streets demo map](assets/readme/preview_1400.png)
 
@@ -27,6 +27,10 @@ The matching map, sprite, and marker manifests are also present under:
 ```text
 modernerKrieg/assets/mosul/manifests/
 ```
+
+The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
+
+The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, overlays C-core units, objectives, civilians, and contact reports, and provides basic controls for selection, movement, investigation orders, single-step simulation, reset, and deterministic AI ticks.
 
 ## Tactical Identity
 
@@ -81,7 +85,7 @@ The engine work lives in the `modernerKrieg` submodule. It is now a portable C +
 
 See [PLAN.md](PLAN.md) for the playable-demo development plan.
 
-The SDL experiment has been removed from the active engine path. Launchable interfaces should now be platform-native shells over the same portable C libraries: a Mac frontend first, then a Windows frontend. The command-line tools remain the deterministic testing, replay, and balancing surface.
+The SDL experiment has been removed from the active engine path. Launchable interfaces should now be platform-native shells over the same portable C libraries. The Mac shell lives here in `mosul`; `modernerKrieg` remains the owner of all C core behavior, loaders, manifests, command-line tools, replay validation, and runtime PNG assets. The command-line tools remain the deterministic testing, replay, and balancing surface.
 
 To inspect or build the engine:
 
@@ -121,6 +125,33 @@ Write and validate a deterministic replay:
 
 The current headless CTest suite validates the portable core, board-view projection, fixed loop, AI behavior, asset manifests, scenario data, headless runs, replay output, balance checks, and core/frontend boundary.
 
+## Mac App
+
+The Mac app source is kept in `mosul`, not in `modernerKrieg`:
+
+- `Mosul.xcodeproj`: Xcode project for the native Mac demo.
+- `Mac/Mosul/App/`: SwiftUI app, map view, controls, and inspector panels.
+- `Mac/Mosul/Bridge/`: C bridge between Swift and the `modernerKrieg` headers.
+- `Mac/README.md`: Mac-specific build notes.
+
+Open the project from the repository root:
+
+```sh
+open Mosul.xcodeproj
+```
+
+Or build the current debug app from Terminal:
+
+```sh
+xcodebuild -project Mosul.xcodeproj \
+  -scheme Mosul \
+  -configuration Debug \
+  -derivedDataPath build/MosulDerivedData \
+  build
+```
+
+The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, and runtime overview PNG directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
+
 ## Development Legacy
 
 MOSUL follows lessons from earlier work rather than starting from a blank page. `guderian` and its included `derZweiteWeltkrieg` engine provide useful design memory: deterministic C rules, headless tests, a thin presentation layer, scenario boards, morale, movement, fire, objectives, and a practical SwiftUI app path.
@@ -133,7 +164,9 @@ MOSUL is not a reskin of a World War II system. Modern Mosul needs its own rules
 
 ```text
 mosul/
+  Mosul.xcodeproj/            native Mac demo project
   README.md
+  Mac/                        SwiftUI app and C bridge
   assets/readme/              public README artwork
   modernerKrieg/              tactical engine, data, tools, and runtime assets
 ```
