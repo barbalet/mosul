@@ -71,13 +71,17 @@ The top-down sprites are also line-art assets. The current tactical scale uses `
 
 ![128 px combatant movement stances](assets/readme/18_combatants_stances_topdown_128.png)
 
+Civilian sprites are part of the tactical system rather than background decoration. The current non-combatant set includes old man, old woman, adult woman, teenage boy, teenage girl, young girl, and young boy archetypes, each with standing, wounded, and dead non-graphic body states plus eight runtime facings.
+
+![128 px civilian state sheet](assets/readme/19_civilian_states_topdown_128.png)
+
 ![128 px U.S.-aligned troop sheet](assets/readme/12_us_ally_troops_topdown_128.png)
 
 ![128 px vehicle sheet](assets/readme/14_us_ally_vehicles_topdown_128.png)
 
 ![128 px weapon sheet](assets/readme/16_us_ally_weapons_topdown_128.png)
 
-The `modernerKrieg` submodule now includes a larger runtime asset base: complete source-angle infantry, weapon, and vehicle sprites, 896 rendered runtime-facing PNGs, a runtime map overview for the Market / Commercial Streets scenario, and validated C-readable manifests for map, sprite, and marker metadata. Source art remains preserved separately from generated/runtime assets.
+The `modernerKrieg` submodule now includes a larger runtime asset base: complete source-angle infantry, civilian, weapon, and vehicle sprites, 1,064 rendered runtime-facing PNGs, a runtime map overview for the Market / Commercial Streets scenario, and validated C-readable manifests for map, sprite, and marker metadata. Source art remains preserved separately from generated/runtime assets.
 
 ## Engine Direction
 
