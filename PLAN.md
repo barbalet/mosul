@@ -17,8 +17,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 9 - Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
 - Completed: Step 10 - Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
 - Completed: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
-- Active: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
-- Active detail: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.
+- Completed: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
+- Active: Step 13 - Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
+- Active detail: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -32,6 +33,7 @@ The project is ready to move from art/import work into playable-demo development
 - The `modernerKrieg` engine submodule builds as a portable C/CMake project and remains the owner of gameplay, data loading, AI, runtime PNG assets, and validation tools.
 - The engine has deterministic coverage for core rules, board projection, scenario loading, asset manifests, AI/autoplay, replay validation, balance checks, and the core/frontend boundary.
 - Source art and generated runtime art for the 2003 demo exist under `modernerKrieg/assets/mosul/`.
+- `modernerKrieg` now carries runtime building-level PNGs, alpha overlays, and multistorey mask metadata for the Market / Commercial Streets map.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the Mosul and AIBattle app bundles through Xcode.
@@ -44,6 +46,7 @@ The project is ready to move from art/import work into playable-demo development
 - The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
 - The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
 - AIBattle now shows a compact tuning panel for pacing, risk, result criteria, contacts, interactions, and the first evidence-driven readability target.
+- AIBattle now delays raw partial outcomes until the configured settling tick, labels high-pressure partials separately, and writes result-pressure plus partial-settlement fields into its evidence report.
 
 ## Playable Demo Target
 
@@ -133,5 +136,7 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Apply the first AIBattle evidence target by making civilian risk easier to scan during active contact without hiding tactical markers.
 11. Done 2026-06-08: Keep edge labels and dense contact stacks inside the shared tactical-map frame.
    - Active detail 2026-06-08: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.
-12. Active: Tune AIBattle pacing and result criteria using the repeatable evidence report.
+12. Done 2026-06-08: Tune AIBattle pacing and result criteria using the repeatable evidence report.
    - Active detail 2026-06-08: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.
+13. Active: Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
+   - Active detail 2026-06-08: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.

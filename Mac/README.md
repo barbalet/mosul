@@ -50,7 +50,7 @@ scripts/capture_snapshot_evidence.sh
 
 The evidence script builds the Mosul app, runs a deterministic snapshot-only launch with AI ticks, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
 
-`AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a settled result, tick limit, or watchdog stall.
+`AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a clean result, pressured partial, tick limit, or watchdog stall.
 
 Run repeatable AIBattle pacing/readability evidence from the repository root:
 
@@ -58,7 +58,7 @@ Run repeatable AIBattle pacing/readability evidence from the repository root:
 scripts/capture_aibattle_evidence.sh
 ```
 
-The evidence script builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with a compact tuning report.
+The evidence script builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with a compact tuning report that includes result pressure and partial-settlement state.
 
 Build AIBattle from the repository root:
 

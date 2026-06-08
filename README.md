@@ -178,7 +178,7 @@ AIBattle also has a repeatable evidence path for pacing and readability review:
 scripts/capture_aibattle_evidence.sh
 ```
 
-That command builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with the first tuning target identified from the sample.
+That command builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with the first tuning target, result pressure, and partial-settlement state identified from the sample.
 
 ```sh
 xcodebuild -project AIBattle.xcodeproj \

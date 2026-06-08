@@ -4,8 +4,98 @@ import SwiftUI
 private enum AIBattleCompletionReason {
     case playerSuccess
     case playerPartial
+    case playerPressuredPartial
     case opforHeld
     case stalled
+}
+
+private struct AIBattleResultPressure {
+    let unresolvedContacts: Int
+    let unresolvedInteractions: Int
+    let highRiskCivilians: Int
+    let engagedUnits: Int
+
+    var score: Int {
+        unresolvedContacts * 2
+            + unresolvedInteractions
+            + highRiskCivilians * 2
+            + max(0, engagedUnits - 1)
+    }
+
+    var state: String {
+        if score >= 9 {
+            return "High pressure"
+        }
+        if score >= 5 {
+            return "Moderate pressure"
+        }
+        if score > 0 {
+            return "Low pressure"
+        }
+        return "Settled"
+    }
+}
+
+private enum AIBattleTuningPolicy {
+    static let maxTicks: UInt32 = 120
+    static let watchdogTicks: UInt32 = 40
+    static let minimumPartialTicks: UInt32 = 80
+    static let partialPressureLimit = 2
+
+    @MainActor
+    static func resultPressure(for model: MosulGameModel) -> AIBattleResultPressure {
+        AIBattleResultPressure(
+            unresolvedContacts: model.contacts.filter { !$0.resolved }.count,
+            unresolvedInteractions: model.interactions.filter { !$0.searched && !$0.breached && !$0.open }.count,
+            highRiskCivilians: model.civilians.filter { $0.risk >= 4 }.count,
+            engagedUnits: model.units.filter { $0.hasTarget || $0.suppression > 0 }.count
+        )
+    }
+
+    @MainActor
+    static func completionReason(for model: MosulGameModel, maxTicks: UInt32 = maxTicks) -> AIBattleCompletionReason? {
+        switch model.score.outcome {
+        case 1:
+            return .playerSuccess
+        case 2:
+            let pressure = resultPressure(for: model)
+            guard model.tick >= minimumPartialTicks || pressure.score <= partialPressureLimit || model.tick >= maxTicks else {
+                return nil
+            }
+
+            return pressure.score <= partialPressureLimit ? .playerPartial : .playerPressuredPartial
+        default:
+            break
+        }
+
+        return model.tick >= maxTicks ? .opforHeld : nil
+    }
+
+    static func partialSettlementState(tick: UInt32, pressure: AIBattleResultPressure, maxTicks: UInt32 = maxTicks) -> String {
+        guard tick < maxTicks else {
+            return pressure.score <= partialPressureLimit ? "Settled at limit" : "Pressured at limit"
+        }
+        guard tick >= minimumPartialTicks else {
+            return "Settling until tick \(minimumPartialTicks)"
+        }
+
+        return pressure.score <= partialPressureLimit ? "Settled enough" : "Pressure accepted"
+    }
+
+    static func resultText(for reason: AIBattleCompletionReason, maxTicks: UInt32 = maxTicks) -> String {
+        switch reason {
+        case .playerSuccess:
+            return "Player AI decisive win"
+        case .playerPartial:
+            return "Player AI clean partial"
+        case .playerPressuredPartial:
+            return "Player AI pressured partial"
+        case .opforHeld:
+            return "Opposing AI held to tick \(maxTicks)"
+        case .stalled:
+            return "No tactical decision"
+        }
+    }
 }
 
 struct AIBattleTuningSnapshot {
@@ -30,6 +120,9 @@ struct AIBattleTuningSnapshot {
     let interactionCount: Int
     let unresolvedInteractions: Int
     let actionableInteractions: Int
+    let resultPressureScore: Int
+    let resultPressureState: String
+    let partialSettlementState: String
     let lastResult: String
 
     @MainActor
@@ -62,6 +155,14 @@ struct AIBattleTuningSnapshot {
         interactionCount = model.interactions.count
         unresolvedInteractions = model.interactions.filter { !$0.searched && !$0.breached && !$0.open }.count
         actionableInteractions = model.interactions.filter { $0.actionable || $0.routeAvailable }.count
+        let pressure = AIBattleTuningPolicy.resultPressure(for: model)
+        resultPressureScore = pressure.score
+        resultPressureState = pressure.state
+        partialSettlementState = AIBattleTuningPolicy.partialSettlementState(
+            tick: model.tick,
+            pressure: pressure,
+            maxTicks: maxTicks
+        )
         self.lastResult = lastResult
     }
 
@@ -102,13 +203,19 @@ struct AIBattleTuningSnapshot {
         case 1:
             return "Player AI success"
         case 2:
-            return "Player AI partial"
+            if resultPressureScore > AIBattleTuningPolicy.partialPressureLimit {
+                return "Player AI pressured partial"
+            }
+            return "Player AI clean partial"
         default:
             return tick >= maxTicks ? "Opposing AI holds" : "In progress"
         }
     }
 
     var firstTuningTarget: String {
+        if score.outcome == 2 && resultPressureScore > AIBattleTuningPolicy.partialPressureLimit {
+            return "Keep partial results under review until unresolved contact, interaction, and civilian-risk pressure settles."
+        }
         if highRiskCivilians > 0 || woundedCivilians > 0 || deadCivilians > 0 {
             return "Prioritize civilian-risk readability when risk rings overlap contact and objective markers."
         }
@@ -137,6 +244,8 @@ struct AIBattleTuningSnapshot {
         score=\(score.total)
         objectives=\(score.controlledObjectives) controlled / \(score.contestedObjectives) contested
         contacts=\(contactReports) total / \(unresolvedContacts) unresolved
+        result_pressure=\(resultPressureState) / \(resultPressureScore)
+        partial_settlement=\(partialSettlementState)
         units=\(unitCount) total / \(playerUnits) player / \(opforUnits) opfor / \(movingUnits) moving / \(engagedUnits) engaged
         civilians=\(civilianCount) total / \(civiliansAtRisk) at_risk / \(highRiskCivilians) high_risk / \(woundedCivilians) wounded / \(deadCivilians) dead
         interactions=\(interactionCount) total / \(unresolvedInteractions) unresolved / \(actionableInteractions) actionable
@@ -156,8 +265,8 @@ struct AIBattleContentView: View {
     @State private var lastResult = "Battle 1 running"
     @State private var didStart = false
 
-    private let maxTicks: UInt32 = 120
-    private let watchdogTicks: UInt32 = 40
+    private let maxTicks = AIBattleTuningPolicy.maxTicks
+    private let watchdogTicks = AIBattleTuningPolicy.watchdogTicks
     private let restartCooldownPulses = 18
     private let pulse = Timer.publish(every: 0.18, on: .main, in: .common).autoconnect()
 
@@ -248,6 +357,7 @@ struct AIBattleContentView: View {
             metricRow("Speed", "\(ticksPerPulse) tick\(ticksPerPulse == 1 ? "" : "s") / pulse")
             metricRow("Limit", "\(maxTicks) ticks")
             metricRow("Watchdog", "\(stagnantTicks)/\(watchdogTicks)")
+            metricRow("Partial Settle", "tick \(AIBattleTuningPolicy.minimumPartialTicks)+")
         }
     }
 
@@ -283,6 +393,8 @@ struct AIBattleContentView: View {
             metricRow("Result", snapshot.resultState)
             metricRow("Contacts", "\(snapshot.unresolvedContacts)/\(snapshot.contactReports) unresolved")
             metricRow("Interactions", "\(snapshot.actionableInteractions) actionable / \(snapshot.unresolvedInteractions) unresolved")
+            metricRow("Pressure", "\(snapshot.resultPressureState) / \(snapshot.resultPressureScore)")
+            metricRow("Partial", snapshot.partialSettlementState)
 
             Divider()
 
@@ -400,17 +512,8 @@ struct AIBattleContentView: View {
     }
 
     private func completionReason() -> AIBattleCompletionReason? {
-        switch model.score.outcome {
-        case 1:
-            return .playerSuccess
-        case 2:
-            return .playerPartial
-        default:
-            break
-        }
-
-        if model.tick >= maxTicks {
-            return .opforHeld
+        if let reason = AIBattleTuningPolicy.completionReason(for: model, maxTicks: maxTicks) {
+            return reason
         }
 
         return updateProgressWatchdog() ? .stalled : nil
@@ -463,16 +566,7 @@ struct AIBattleContentView: View {
     }
 
     private func resultText(for reason: AIBattleCompletionReason) -> String {
-        switch reason {
-        case .playerSuccess:
-            return "Player AI decisive win"
-        case .playerPartial:
-            return "Player AI partial win"
-        case .opforHeld:
-            return "Opposing AI held to tick \(maxTicks)"
-        case .stalled:
-            return "No tactical decision"
-        }
+        AIBattleTuningPolicy.resultText(for: reason, maxTicks: maxTicks)
     }
 
     private func sideColor(_ side: Int32) -> Color {
@@ -522,8 +616,8 @@ enum AIBattleEvidenceController {
         var scale: CGFloat = 1.0
         var aiTicks: UInt32 = 80
         var battleIndex: UInt32 = 1
-        var maxTicks: UInt32 = 120
-        var watchdogTicks: UInt32 = 40
+        var maxTicks = AIBattleTuningPolicy.maxTicks
+        var watchdogTicks = AIBattleTuningPolicy.watchdogTicks
     }
 
     struct EvidenceResult {
@@ -595,12 +689,8 @@ enum AIBattleEvidenceController {
             model.runAI()
             ticksRun += 1
 
-            if model.score.outcome == 1 {
-                lastResult = "Player AI decisive win"
-                break
-            }
-            if model.score.outcome == 2 {
-                lastResult = "Player AI partial win"
+            if let reason = AIBattleTuningPolicy.completionReason(for: model, maxTicks: request.maxTicks) {
+                lastResult = AIBattleTuningPolicy.resultText(for: reason, maxTicks: request.maxTicks)
                 break
             }
         }
@@ -723,6 +813,8 @@ private struct AIBattleEvidenceView: View {
                     metricRow("Score", "\(snapshot.score.total)")
                     metricRow("Contacts", "\(snapshot.unresolvedContacts)/\(snapshot.contactReports) unresolved")
                     metricRow("Interactions", "\(snapshot.actionableInteractions) actionable")
+                    metricRow("Pressure", "\(snapshot.resultPressureState) / \(snapshot.resultPressureScore)")
+                    metricRow("Partial", snapshot.partialSettlementState)
                 }
 
                 panel("Civilian Risk") {
