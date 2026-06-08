@@ -20,6 +20,9 @@ struct MosulUnit: Identifiable {
     let targetMarkerID: String
     let suppressionMarkerID: String
     let casualtyMarkerID: String
+    let levelID: String
+    let targetLevelID: String
+    let topologyNodeID: String
     let side: Int32
     let order: Int32
     let status: Int32
@@ -31,6 +34,7 @@ struct MosulUnit: Identifiable {
     let hidden: Bool
     let revealed: Bool
     let selected: Bool
+    let routeUsesVerticalTransition: Bool
     let suppression: Int32
     let morale: Int32
     let soldierCount: Int
@@ -65,6 +69,7 @@ struct MosulContact: Identifiable {
     let id: UInt32
     let tick: UInt32
     let markerID: String
+    let levelID: String
     let kind: Int32
     let side: Int32
     let x: CGFloat
@@ -81,6 +86,10 @@ struct MosulInteraction: Identifiable {
     let label: String
     let markerID: String
     let state: String
+    let levelID: String
+    let targetLevelID: String
+    let topologyNodeID: String
+    let targetNodeID: String
     let kind: Int32
     let source: Int32
     let x: CGFloat
@@ -92,6 +101,7 @@ struct MosulInteraction: Identifiable {
     let breached: Bool
     let open: Bool
     let vertical: Bool
+    let sameLevel: Bool
     let actionable: Bool
     let routeAvailable: Bool
 }
@@ -257,6 +267,32 @@ final class MosulGameModel: ObservableObject {
         playableSide?.opponent.title ?? "Opponent"
     }
 
+    var tacticalMapLevelIDs: Set<String> {
+        var ids = Set<String>()
+
+        if let selectedUnit {
+            ids.insert(selectedUnit.levelID)
+            ids.insert(selectedUnit.targetLevelID)
+        }
+
+        for unit in units where unit.routeUsesVerticalTransition {
+            ids.insert(unit.levelID)
+            ids.insert(unit.targetLevelID)
+        }
+
+        for contact in contacts where !contact.resolved {
+            ids.insert(contact.levelID)
+        }
+
+        for interaction in interactions where interaction.actionable || interaction.vertical {
+            ids.insert(interaction.levelID)
+            ids.insert(interaction.targetLevelID)
+        }
+
+        ids.remove("")
+        return ids
+    }
+
     var selectedInteractionTasks: [MosulInteraction] {
         guard selectedUnitCanReceiveOrders else { return [] }
 
@@ -290,6 +326,49 @@ final class MosulGameModel: ObservableObject {
 
     var overlayMapLevels: [MosulMapLevel] {
         mapLevels.filter { !$0.isBase }
+    }
+
+    func mapLevel(for id: String) -> MosulMapLevel? {
+        mapLevels.first { $0.id == id }
+    }
+
+    func levelLabel(for id: String) -> String {
+        guard !id.isEmpty else {
+            return "?"
+        }
+
+        if let level = mapLevel(for: id) {
+            return level.shortLabel
+        }
+
+        if id.contains("ground") {
+            return "G"
+        }
+        if id.contains("roof") {
+            return "R"
+        }
+
+        return String(id.prefix(2)).uppercased()
+    }
+
+    func levelName(for id: String) -> String {
+        if let level = mapLevel(for: id) {
+            return level.displayName
+        }
+
+        return id.isEmpty ? "Unknown" : id
+    }
+
+    func levelRelationDescription(for interaction: MosulInteraction) -> String {
+        if interaction.vertical {
+            return "\(levelLabel(for: interaction.levelID))->\(levelLabel(for: interaction.targetLevelID))"
+        }
+
+        if !interaction.sameLevel {
+            return "\(levelLabel(for: interaction.levelID))/\(levelLabel(for: interaction.targetLevelID))"
+        }
+
+        return levelLabel(for: interaction.levelID)
     }
 
     func toggleMapLevelVisibility(_ level: MosulMapLevel) {
@@ -451,6 +530,7 @@ final class MosulGameModel: ObservableObject {
         refreshCivilians(engine)
         refreshContacts(engine)
         refreshInteractions(engine)
+        refreshTacticalMapLevelVisibility()
         refreshScore(engine)
         refreshAfterAction(engine)
     }
@@ -488,6 +568,11 @@ final class MosulGameModel: ObservableObject {
             visibleMapLevelIDs = visibleMapLevelIDs.intersection(overlayIDs)
             visibleMapLevelIDs.formUnion(overlayIDs.subtracting(previousOverlayIDs))
         }
+    }
+
+    private func refreshTacticalMapLevelVisibility() {
+        let overlayIDs = Set(mapLevels.filter { !$0.isBase }.map(\.id))
+        visibleMapLevelIDs.formUnion(tacticalMapLevelIDs.intersection(overlayIDs))
     }
 
     private func issueOrder(_ order: Int32) {
@@ -529,6 +614,9 @@ final class MosulGameModel: ObservableObject {
                 targetMarkerID: bridgeString(item.target_marker_id),
                 suppressionMarkerID: bridgeString(item.suppression_marker_id),
                 casualtyMarkerID: bridgeString(item.casualty_marker_id),
+                levelID: bridgeString(item.level_id),
+                targetLevelID: bridgeString(item.target_level_id),
+                topologyNodeID: bridgeString(item.topology_node_id),
                 side: item.side,
                 order: item.order,
                 status: item.status,
@@ -540,6 +628,7 @@ final class MosulGameModel: ObservableObject {
                 hidden: item.hidden,
                 revealed: item.revealed,
                 selected: item.selected,
+                routeUsesVerticalTransition: item.route_uses_vertical_transition,
                 suppression: item.suppression,
                 morale: item.morale,
                 soldierCount: item.soldier_count,
@@ -601,6 +690,7 @@ final class MosulGameModel: ObservableObject {
                 id: item.id,
                 tick: item.tick,
                 markerID: bridgeString(item.marker_id),
+                levelID: bridgeString(item.level_id),
                 kind: item.kind,
                 side: item.side,
                 x: CGFloat(item.x_m),
@@ -626,6 +716,10 @@ final class MosulGameModel: ObservableObject {
                 label: bridgeString(item.label),
                 markerID: bridgeString(item.marker_id),
                 state: bridgeString(item.state),
+                levelID: bridgeString(item.level_id),
+                targetLevelID: bridgeString(item.target_level_id),
+                topologyNodeID: bridgeString(item.topology_node_id),
+                targetNodeID: bridgeString(item.target_node_id),
                 kind: item.kind,
                 source: item.source,
                 x: CGFloat(item.x_m),
@@ -637,6 +731,7 @@ final class MosulGameModel: ObservableObject {
                 breached: item.breached,
                 open: item.open,
                 vertical: item.vertical,
+                sameLevel: item.same_level,
                 actionable: item.actionable,
                 routeAvailable: item.route_available
             )

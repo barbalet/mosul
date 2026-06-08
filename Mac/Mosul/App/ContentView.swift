@@ -246,6 +246,13 @@ struct ContentView: View {
                 metricRow("Side", sideName(unit.side))
                 metricRow("Order", orderName(unit.order))
                 metricRow("Status", statusName(unit.status))
+                metricRow("Level", model.levelName(for: unit.levelID))
+                if !unit.topologyNodeID.isEmpty {
+                    metricRow("Node", unit.topologyNodeID)
+                }
+                if unit.routeUsesVerticalTransition {
+                    metricRow("Route", "\(model.levelLabel(for: unit.levelID))->\(model.levelLabel(for: unit.targetLevelID))")
+                }
                 metricRow("Position", "\(Int(unit.x)), \(Int(unit.y)) m")
                 metricRow("Soldiers", "\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
                 metricRow("Suppression", "\(unit.suppression)")
@@ -270,12 +277,16 @@ struct ContentView: View {
         let unresolved = model.interactions.filter { !$0.searched && !$0.breached }.count
         let actionable = model.interactions.filter { $0.actionable }.count
         let rooftop = model.interactions.filter { $0.kind == 4 }.count
+        let activeLevels = model.tacticalMapLevelIDs.map { model.levelLabel(for: $0) }.sorted().joined(separator: ", ")
 
         return panel("Interactions") {
             metricRow("Visible", "\(model.interactions.count)")
             metricRow("Unresolved", "\(unresolved)")
             metricRow("Actionable", "\(actionable)")
             metricRow("Rooftop", "\(rooftop)")
+            if !activeLevels.isEmpty {
+                metricRow("Active Levels", activeLevels)
+            }
         }
     }
 
@@ -289,7 +300,7 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(unit.name)
                                 .font(.caption.weight(.semibold))
-                            Text("\(sideName(unit.side)) | \(orderName(unit.order)) | \(statusName(unit.status))")
+                            Text("\(sideName(unit.side)) | \(model.levelLabel(for: unit.levelID)) | \(orderName(unit.order)) | \(statusName(unit.status))")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -321,7 +332,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(contactName(contact.kind)) at \(Int(contact.x)), \(Int(contact.y)) m")
                             .font(.caption.weight(.semibold))
-                        Text("Tick \(contact.tick) | \(sideName(contact.side)) | confidence \(contact.confidence)")
+                        Text("Tick \(contact.tick) | \(model.levelLabel(for: contact.levelID)) | \(sideName(contact.side)) | confidence \(contact.confidence)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -376,7 +387,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(interaction.label)
                         .font(.caption.weight(.semibold))
-                    Text("\(interactionKindName(interaction.kind)) | \(interaction.state) | \(Int(interaction.distance)) m")
+                    Text("\(interactionKindName(interaction.kind)) | \(model.levelRelationDescription(for: interaction)) | \(interaction.state) | \(Int(interaction.distance)) m")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

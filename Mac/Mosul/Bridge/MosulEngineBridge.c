@@ -633,6 +633,71 @@ static const char *mosul_bridge_target_marker_id(const mk_unit_t *unit) {
     return "move_target";
 }
 
+static const char *mosul_bridge_default_level_id(const mk_game_t *game) {
+    if (game == NULL || game->gameplay_area.level_count == 0) {
+        return "";
+    }
+
+    return game->gameplay_area.levels[0].id;
+}
+
+static const char *mosul_bridge_unit_level_id(const mk_game_t *game, const mk_unit_t *unit) {
+    if (unit != NULL && unit->level_id[0] != '\0') {
+        return unit->level_id;
+    }
+
+    return mosul_bridge_default_level_id(game);
+}
+
+static const char *mosul_bridge_unit_target_level_id(const mk_game_t *game, const mk_unit_t *unit) {
+    if (unit != NULL && unit->has_move_target && unit->route_step_count > 0) {
+        size_t final_step_index = unit->route_step_count - 1U;
+
+        if (unit->route_step_level_ids[final_step_index][0] != '\0') {
+            return unit->route_step_level_ids[final_step_index];
+        }
+    }
+
+    return mosul_bridge_unit_level_id(game, unit);
+}
+
+static const char *mosul_bridge_civilian_level_id(const mk_game_t *game, const mk_civilian_t *civilian) {
+    if (civilian != NULL && civilian->level_id[0] != '\0') {
+        return civilian->level_id;
+    }
+
+    return mosul_bridge_default_level_id(game);
+}
+
+static const char *mosul_bridge_contact_level_id(const mk_game_t *game, const mk_contact_report_t *contact) {
+    const mk_unit_t *unit;
+    size_t index;
+
+    if (game == NULL || contact == NULL) {
+        return "";
+    }
+
+    unit = mk_game_find_unit_const(game, contact->target_unit_id);
+    if (unit != NULL) {
+        return mosul_bridge_unit_level_id(game, unit);
+    }
+
+    unit = mk_game_find_unit_const(game, contact->attacker_unit_id);
+    if (unit != NULL) {
+        return mosul_bridge_unit_level_id(game, unit);
+    }
+
+    if (contact->civilian_id != 0U) {
+        for (index = 0; index < game->civilian_count; ++index) {
+            if (game->civilians[index].id == contact->civilian_id) {
+                return mosul_bridge_civilian_level_id(game, &game->civilians[index]);
+            }
+        }
+    }
+
+    return mosul_bridge_default_level_id(game);
+}
+
 static const char *mosul_bridge_civilian_marker_id(const mk_civilian_t *civilian) {
     if (civilian == NULL) {
         return "";
@@ -915,6 +980,13 @@ size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_uni
             sizeof(summary->casualty_marker_id),
             mosul_bridge_unit_casualties(unit) > 0 ? "casualty" : ""
         );
+        mosul_bridge_copy_text(summary->level_id, sizeof(summary->level_id), mosul_bridge_unit_level_id(&engine->game, unit));
+        mosul_bridge_copy_text(
+            summary->target_level_id,
+            sizeof(summary->target_level_id),
+            mosul_bridge_unit_target_level_id(&engine->game, unit)
+        );
+        mosul_bridge_copy_text(summary->topology_node_id, sizeof(summary->topology_node_id), unit->topology_node_id);
         summary->side = (int)unit->side;
         summary->order = (int)unit->order;
         summary->status = (int)unit->status;
@@ -926,6 +998,7 @@ size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_uni
         summary->hidden = unit->hidden;
         summary->revealed = unit->revealed;
         summary->selected = unit->id == engine->game.selected_unit_id;
+        summary->route_uses_vertical_transition = unit->route_uses_vertical_transition;
         summary->suppression = unit->suppression;
         summary->morale = unit->morale;
         summary->soldier_count = unit->soldier_count;
@@ -1020,6 +1093,7 @@ size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *o
             sizeof(summary->marker_id),
             mosul_bridge_contact_marker_id(contact)
         );
+        mosul_bridge_copy_text(summary->level_id, sizeof(summary->level_id), mosul_bridge_contact_level_id(&engine->game, contact));
         summary->kind = (int)contact->kind;
         summary->side = (int)contact->side;
         summary->x_m = contact->position_m.x;
@@ -1051,13 +1125,38 @@ size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSu
     for (index = 0; index < engine->game.gameplay_area.topology_portal_count && count < capacity; ++index) {
         const mk_gameplay_topology_portal_t *portal = &engine->game.gameplay_area.topology_portals[index];
         MosulInteractionSummary *summary;
+        const mk_gameplay_topology_node_t *from_node;
+        const mk_gameplay_topology_node_t *to_node;
+        const char *level_id;
+        const char *target_level_id;
+        const char *topology_node_id;
+        const char *target_node_id;
         mk_vec2_t position;
         int kind;
         bool unit_at_portal;
+        bool same_level;
 
         if (!mosul_bridge_portal_is_interaction(portal)) {
             continue;
         }
+
+        from_node = mk_gameplay_area_find_topology_node(&engine->game.gameplay_area, portal->from_node_id);
+        to_node = mk_gameplay_area_find_topology_node(&engine->game.gameplay_area, portal->to_node_id);
+        level_id = portal->level_id[0] != '\0' ? portal->level_id : mosul_bridge_default_level_id(&engine->game);
+        target_level_id = level_id;
+        topology_node_id = portal->from_node_id;
+        target_node_id = portal->to_node_id;
+        if (portal->vertical && from_node != NULL && to_node != NULL) {
+            level_id = from_node->level_id;
+            target_level_id = to_node->level_id;
+            if (selected_unit != NULL && mosul_bridge_unit_touches_node(selected_unit, portal->to_node_id)) {
+                level_id = to_node->level_id;
+                target_level_id = from_node->level_id;
+                topology_node_id = portal->to_node_id;
+                target_node_id = portal->from_node_id;
+            }
+        }
+        same_level = strcmp(level_id, target_level_id) == 0;
 
         position = mosul_bridge_rect_center(portal->bounds_m);
         kind = mosul_bridge_portal_interaction_kind(portal);
@@ -1072,6 +1171,10 @@ size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSu
         mosul_bridge_copy_text(summary->interaction_id, sizeof(summary->interaction_id), portal->id);
         mosul_bridge_copy_text(summary->label, sizeof(summary->label), mosul_bridge_portal_interaction_label(portal));
         mosul_bridge_copy_text(summary->state, sizeof(summary->state), portal->state);
+        mosul_bridge_copy_text(summary->level_id, sizeof(summary->level_id), level_id);
+        mosul_bridge_copy_text(summary->target_level_id, sizeof(summary->target_level_id), target_level_id);
+        mosul_bridge_copy_text(summary->topology_node_id, sizeof(summary->topology_node_id), topology_node_id);
+        mosul_bridge_copy_text(summary->target_node_id, sizeof(summary->target_node_id), target_node_id);
         mosul_bridge_copy_marker_id(
             engine,
             summary->marker_id,
@@ -1089,6 +1192,7 @@ size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSu
         summary->breached = portal->breached;
         summary->open = mosul_bridge_portal_is_open_for_route(portal);
         summary->vertical = portal->vertical;
+        summary->same_level = same_level;
         summary->actionable = selected_unit != NULL
             && unit_at_portal
             && !portal->vertical
@@ -1121,6 +1225,10 @@ size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSu
         mosul_bridge_copy_text(summary->interaction_id, sizeof(summary->interaction_id), zone->id);
         mosul_bridge_copy_text(summary->label, sizeof(summary->label), mosul_bridge_zone_interaction_label(zone));
         mosul_bridge_copy_text(summary->state, sizeof(summary->state), zone->searched ? "searched" : "pending");
+        mosul_bridge_copy_text(summary->level_id, sizeof(summary->level_id), zone->level_id);
+        mosul_bridge_copy_text(summary->target_level_id, sizeof(summary->target_level_id), zone->level_id);
+        mosul_bridge_copy_text(summary->topology_node_id, sizeof(summary->topology_node_id), zone->node_id);
+        mosul_bridge_copy_text(summary->target_node_id, sizeof(summary->target_node_id), zone->node_id);
         mosul_bridge_copy_marker_id(
             engine,
             summary->marker_id,
@@ -1138,6 +1246,8 @@ size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSu
         summary->breached = false;
         summary->open = true;
         summary->vertical = kind == MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP;
+        summary->same_level = selected_unit == NULL
+            || strcmp(mosul_bridge_unit_level_id(&engine->game, selected_unit), zone->level_id) == 0;
         summary->actionable = selected_unit != NULL && unit_at_zone && !zone->searched;
         summary->route_available = selected_unit != NULL;
         count += 1;

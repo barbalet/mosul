@@ -87,22 +87,32 @@ struct TacticalMapView: View {
 
                 ForEach(overlays) { level in
                     let active = model.visibleMapLevelIDs.contains(level.id)
+                    let tactical = model.tacticalMapLevelIDs.contains(level.id)
 
                     Button {
                         model.toggleMapLevelVisibility(level)
                     } label: {
-                        Text(level.shortLabel)
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(active ? Color.white : Color.secondary)
-                            .frame(width: 22, height: 20)
-                            .background(
-                                mapLevelControlColor(level).opacity(active ? 0.90 : 0.10),
-                                in: RoundedRectangle(cornerRadius: 4)
-                            )
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(mapLevelControlColor(level).opacity(active ? 0.95 : 0.35), lineWidth: 1)
+                        ZStack(alignment: .topTrailing) {
+                            Text(level.shortLabel)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(active ? Color.white : Color.secondary)
+                                .frame(width: 22, height: 20)
+                                .background(
+                                    mapLevelControlColor(level).opacity(active ? 0.90 : 0.10),
+                                    in: RoundedRectangle(cornerRadius: 4)
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(mapLevelControlColor(level).opacity(active ? 0.95 : 0.35), lineWidth: 1)
+                                }
+
+                            if tactical {
+                                Circle()
+                                    .fill(Color.yellow)
+                                    .frame(width: 5, height: 5)
+                                    .offset(x: 2, y: -2)
                             }
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(active ? "Hide" : "Show") \(level.displayName)")
@@ -288,6 +298,8 @@ struct TacticalMapView: View {
             Image(systemName: symbol)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(color)
+            levelChip(model.levelLabel(for: contact.levelID), color: color)
+                .offset(x: 13, y: -13)
         }
         .opacity(contact.resolved ? 0.72 : 1.0)
         .position(point)
@@ -372,6 +384,11 @@ struct TacticalMapView: View {
             Image(systemName: resolved ? "checkmark" : symbol)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(color)
+
+            if interaction.vertical || interaction.actionable {
+                levelChip(model.levelRelationDescription(for: interaction), color: color)
+                    .offset(x: size * 0.50, y: -size * 0.48)
+            }
         }
         .opacity(resolved ? 0.72 : 1.0)
         .position(point)
@@ -418,8 +435,9 @@ struct TacticalMapView: View {
     }
 
     private func unitLabel(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
-        let label = shortName(unit.name)
-        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 90), height: 16)
+        let levelSuffix = unit.selected || unit.routeUsesVerticalTransition ? " \(model.levelLabel(for: unit.levelID))" : ""
+        let label = "\(shortName(unit.name))\(levelSuffix)"
+        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 110), height: 16)
         let spriteSize = unitSpriteSize(unit, layout: layout)
         let yOffset = point.y > layout.rect.maxY - 36 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
         let labelPoint = clampedLabelPoint(
@@ -436,6 +454,21 @@ struct TacticalMapView: View {
             .frame(width: labelSize.width, height: labelSize.height)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
             .position(labelPoint)
+    }
+
+    private func levelChip(_ label: String, color: Color) -> some View {
+        Text(label)
+            .font(.system(size: 7, weight: .bold, design: .rounded))
+            .lineLimit(1)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 3)
+            .frame(minWidth: 12)
+            .frame(height: 12)
+            .background(color.opacity(0.94), in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(Color.white.opacity(0.76), lineWidth: 0.5)
+            }
     }
 
     private func unitMarkerSize(_ unit: MosulUnit, layout: MapLayout) -> CGSize {

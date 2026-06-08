@@ -19,8 +19,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
 - Completed: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
 - Completed: Step 13 - Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
-- Active: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
-- Active detail: Use the C-core gameplay level IDs to label selected units, emphasize same-level versus vertical interactions, and tie the new upper-floor overlays to tactical state instead of visual toggles only.
+- Completed: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
+- Active: Step 15 - Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
+- Active detail: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -48,7 +49,8 @@ The project is ready to move from art/import work into playable-demo development
 - The shared Mac tactical map now draws civilian-risk as a dedicated underlay with stronger high-risk emphasis so civilians stay visible during contact/objective overlap.
 - The shared Mac tactical map now uses edge-aware objective/unit labels and clustered contact offsets so dense markers stay inside the rendered map frame.
 - The shared Mac tactical map now renders `modernerKrieg`'s runtime ground-level PNG plus upper-floor and roof-access alpha overlays with compact per-level toggles.
-- The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
+- The shared Mac tactical map now labels selected-unit, contact, and interaction levels, distinguishes vertical interaction routes from same-level tasks, and auto-shows tactical map overlays referenced by selected units, vertical routes, unresolved contacts, or actionable interactions.
+- The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, unit/contact/interaction gameplay level IDs, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
 - The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
 - AIBattle now shows a compact tuning panel for pacing, risk, result criteria, contacts, interactions, and the first evidence-driven readability target.
 - AIBattle now delays raw partial outcomes until the configured settling tick, labels high-pressure partials separately, and writes result-pressure plus partial-settlement fields into its evidence report.
@@ -145,5 +147,7 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.
 13. Done 2026-06-08: Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
    - Active detail 2026-06-08: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.
-14. Active: Add level-aware unit, contact, and interaction context to the Mac UI.
+14. Done 2026-06-08: Add level-aware unit, contact, and interaction context to the Mac UI.
    - Active detail 2026-06-08: Use the C-core gameplay level IDs to label selected units, emphasize same-level versus vertical interactions, and tie the new upper-floor overlays to tactical state instead of visual toggles only.
+15. Active: Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
+   - Active detail 2026-06-08: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.

@@ -39,6 +39,9 @@ typedef struct {
     char target_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     char suppression_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     char casualty_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char level_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char target_level_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char topology_node_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int side;
     int order;
     int status;
@@ -50,6 +53,7 @@ typedef struct {
     bool hidden;
     bool revealed;
     bool selected;
+    bool route_uses_vertical_transition;
     int suppression;
     int morale;
     size_t soldier_count;
@@ -86,6 +90,7 @@ typedef struct {
     uint32_t id;
     uint32_t tick;
     char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char level_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int kind;
     int side;
     float x_m;
@@ -104,6 +109,10 @@ typedef struct {
     char label[MOSUL_BRIDGE_NAME_CAPACITY];
     char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     char state[MOSUL_BRIDGE_NAME_CAPACITY];
+    char level_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char target_level_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char topology_node_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char target_node_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int kind;
     int source;
     float x_m;
@@ -115,6 +124,7 @@ typedef struct {
     bool breached;
     bool open;
     bool vertical;
+    bool same_level;
     bool actionable;
     bool route_available;
 } MosulInteractionSummary;
