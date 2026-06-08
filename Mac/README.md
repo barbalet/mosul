@@ -38,7 +38,7 @@ Run the repeatable Mac app smoke path from the repository root:
 scripts/run_mac_smoke.sh
 ```
 
-The smoke path builds both native app bundles into `build/mac-smoke/` through Xcode and checks that the expected app executables were produced. It is the Mac-wrapper companion to the portable CTest coverage in `modernerKrieg`.
+The smoke path builds both native app bundles into `build/mac-smoke/` through Xcode and checks that the expected app executables were produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, making it the Mac-wrapper companion to the portable CTest coverage in `modernerKrieg`.
 
 The codenamed `snapshot` test path writes the current tactical-map render to timestamped PNG files under `snapshots/` at the repository root. The directory is ignored by git so local visual samples can be captured freely while checking battle states, civilian risk, contact reports, and future sprite rendering.
 

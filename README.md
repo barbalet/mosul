@@ -160,7 +160,7 @@ Run the repeatable native Mac smoke path:
 scripts/run_mac_smoke.sh
 ```
 
-The smoke script builds both `Mosul.xcodeproj` and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. This complements the portable CTest coverage in `modernerKrieg`.
+The smoke script builds both `Mosul.xcodeproj` and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, complementing the portable CTest coverage in `modernerKrieg`.
 
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, and runtime overview PNG directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
 

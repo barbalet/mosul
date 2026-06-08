@@ -12,8 +12,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 4 - Add player-facing after-action results from the existing C score/outcome data.
 - Completed: Step 5 - Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
 - Completed: Step 6 - Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
-- Active: Step 7 - Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
-- Active detail: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
+- Completed: Step 7 - Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+- Active: Step 8 - Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+- Active detail: Capture repeatable tactical-map PNG evidence for the current sprite/interaction/civilian overlay state and document how to use it in visual checks.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -29,10 +30,11 @@ The project is ready to move from art/import work into playable-demo development
 - Source art and generated runtime art for the 2003 demo exist under `modernerKrieg/assets/mosul/`.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
+- `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the Mosul and AIBattle app bundles through Xcode.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
-- The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, and hidden/contact markers over the runtime sprites.
-- The C bridge now exposes the sprite and marker manifest ids the Mac map needs, including unit/civilian sprite ids and validated tactical marker ids from the MOSUL marker manifest.
-- The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data.
+- The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
+- The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
+- The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
 
 ## Playable Demo Target
 
@@ -112,7 +114,8 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Expose C-core breach/search/cache/rooftop interaction points through the bridge as map overlays and selected-unit controls.
 6. Done 2026-06-08: Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
    - Active detail 2026-06-08: Add a root Mac smoke script and CI workflow that build the native Mosul and AIBattle app bundles through Xcode.
-7. Active: Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+7. Done 2026-06-08: Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
    - Active detail 2026-06-08: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
-8. Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+8. Active: Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+   - Active detail 2026-06-08: Capture repeatable tactical-map PNG evidence for the current sprite/interaction/civilian overlay state and document how to use it in visual checks.
 9. Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
