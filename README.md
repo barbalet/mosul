@@ -2,8 +2,6 @@
 
 `mosul` is the public Mac SwiftUI interface and project home for a tactical war game and playable demo set in Mosul, Iraq. The first demo target is the 2003 Market / Commercial Streets scenario: a tense post-invasion urban security fight built around patrols, checkpoints, shopfronts, rooftops, civilians, looting pressure, raids, hidden weapons, and sudden close-range contact.
 
-![2003 Market / Commercial Streets demo map](assets/readme/preview_1400.png)
-
 The aim is not to make a generic arena shooter with a Mosul label. The project is about a city: streets, roofs, courtyards, alleys, civic buildings, market lanes, civilians, military uncertainty, and the uncomfortable transition from battlefield victory to public security.
 
 ## Current Demo
