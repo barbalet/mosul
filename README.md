@@ -26,9 +26,9 @@ The matching map, sprite, and marker manifests are also present under:
 modernerKrieg/assets/mosul/manifests/
 ```
 
-The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
+The native Mac demo is now present in this repository as `MosulGame.xcodeproj`, with the earlier `Mosul.xcodeproj` wrapper retained for continuity. MosulGame is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
 
-The current Mac app renders the runtime Market / Commercial Streets ground-level PNG plus upper-floor and roof-access alpha overlays from `modernerKrieg/assets/mosul/runtime/`, receives the sprite, marker, and map-level ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays edge-aware tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, clustered contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and provides controls for selection, movement, investigation, breach/search, map-level visibility, single-step simulation, reset, and deterministic AI ticks.
+The current Mac app renders the runtime Market / Commercial Streets ground-level PNG plus upper-floor and roof-access alpha overlays from `modernerKrieg/assets/mosul/runtime/`, receives the sprite, marker, and map-level ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays edge-aware tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, clustered contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and provides controls for side selection, selection, movement, investigation, breach/search, map-level visibility, single-step simulation, reset, and deterministic opponent AI ticks.
 
 The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development. For repeatable visual evidence, run:
 
@@ -139,24 +139,25 @@ The current headless CTest suite validates the portable core, board-view project
 
 The Mac app source is kept in `mosul`, not in `modernerKrieg`:
 
-- `Mosul.xcodeproj`: Xcode project for the native Mac demo.
+- `MosulGame.xcodeproj`: Xcode project for the player-facing native Mac game.
+- `Mosul.xcodeproj`: earlier native Mac wrapper retained for continuity.
 - `Mac/Mosul/App/`: SwiftUI app, map view, controls, and inspector panels.
 - `Mac/Mosul/Bridge/`: C bridge between Swift and the `modernerKrieg` headers.
 - `Mac/README.md`: Mac-specific build notes.
 
-Open the project from the repository root:
+Open the player-facing project from the repository root:
 
 ```sh
-open Mosul.xcodeproj
+open MosulGame.xcodeproj
 ```
 
-Or build the current debug app from Terminal:
+Or build the current debug game from Terminal:
 
 ```sh
-xcodebuild -project Mosul.xcodeproj \
-  -scheme Mosul \
+xcodebuild -project MosulGame.xcodeproj \
+  -scheme MosulGame \
   -configuration Debug \
-  -derivedDataPath build/MosulDerivedData \
+  -derivedDataPath build/MosulGameDerivedData \
   build
 ```
 
@@ -166,9 +167,11 @@ Run the repeatable native Mac smoke path:
 scripts/run_mac_smoke.sh
 ```
 
-The smoke script builds both `Mosul.xcodeproj` and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, complementing the portable CTest coverage in `modernerKrieg`.
+The smoke script builds `MosulGame.xcodeproj`, `Mosul.xcodeproj`, and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, complementing the portable CTest coverage in `modernerKrieg`.
 
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, runtime map level PNGs, and overview fallback directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
+
+MosulGame starts by letting the player command either the U.S. patrol or the opposing armed cell in the decisive 2003 Market / Commercial Streets battle. The chosen side receives manual orders while the opponent advances through the same deterministic tactical AI used by AIBattle.
 
 The standalone `AIBattle.xcodeproj` app is an AI-vs-AI autoplay shell over the same shared Mosul Swift model, tactical map view, C bridge, and `modernerKrieg` core sources. It continuously runs both sides under AI, visualizes battle state, records each result, and restarts with the next seeded battle variant so playability and visualization can be exercised before the main player-facing app is complete.
 
@@ -179,6 +182,14 @@ scripts/capture_aibattle_evidence.sh
 ```
 
 That command builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with the first tuning target, result pressure, and partial-settlement state identified from the sample.
+
+AIBattle can also export a full-battle movie with the tactical map, markers, score, civilian state, unit state, contacts, tuning status, and final result visible in every frame:
+
+```sh
+scripts/capture_aibattle_movie.sh
+```
+
+That command builds AIBattle, runs its deterministic movie-only launch, and writes `snapshots/evidence/aibattle-battle-1.mov` plus a matching `.txt` report. Use `--battle-index`, `--fps`, `--output`, and `--report` to create shareable variants for external developer review.
 
 ```sh
 xcodebuild -project AIBattle.xcodeproj \
@@ -200,6 +211,7 @@ MOSUL is not a reskin of a World War II system. Modern Mosul needs its own rules
 
 ```text
 mosul/
+  MosulGame.xcodeproj/       native Mac player-facing game project
   Mosul.xcodeproj/            native Mac demo project
   AIBattle.xcodeproj/         native Mac AI-vs-AI autoplay project
   README.md

@@ -148,6 +148,7 @@ bool MosulEngineReset(MosulEngine *engine);
 bool MosulEngineResetBattle(MosulEngine *engine, uint32_t battle_index);
 bool MosulEngineStep(MosulEngine *engine, uint32_t steps);
 bool MosulEngineRunAI(MosulEngine *engine, uint32_t steps);
+bool MosulEngineRunAIForSide(MosulEngine *engine, int side, uint32_t steps);
 
 const char *MosulEngineScenarioName(const MosulEngine *engine);
 const char *MosulEngineBriefing(const MosulEngine *engine);

@@ -8,6 +8,6 @@ enum MosulVersion {
     }
 
     static var displayName: String {
-        "MOSUL \(shortVersion)"
+        "MosulGame \(shortVersion)"
     }
 }

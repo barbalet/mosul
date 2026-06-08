@@ -266,6 +266,46 @@ bool MosulEngineRunAI(MosulEngine *engine, uint32_t steps) {
     return true;
 }
 
+bool MosulEngineRunAIForSide(MosulEngine *engine, int side, uint32_t steps) {
+    uint32_t step_index;
+    mk_side_t ai_side = (mk_side_t)side;
+
+    if (engine == NULL || (ai_side != MK_SIDE_PLAYER && ai_side != MK_SIDE_OPFOR)) {
+        return false;
+    }
+
+    for (step_index = 0; step_index < steps; ++step_index) {
+        mk_controller_kind_t original_kinds[MK_MAX_CONTROLLERS];
+        size_t controller_index;
+        mk_result_t result;
+
+        for (controller_index = 0; controller_index < engine->game.controller_count; ++controller_index) {
+            mk_controller_slot_t *controller = &engine->game.controllers[controller_index];
+
+            original_kinds[controller_index] = controller->kind;
+            if (controller->side != ai_side
+                && (controller->kind == MK_CONTROLLER_TACTICAL_AI || controller->kind == MK_CONTROLLER_SCRIPTED_AI)) {
+                controller->kind = MK_CONTROLLER_HUMAN;
+            }
+        }
+
+        result = mk_ai_issue_basic_orders(&engine->game);
+
+        for (controller_index = 0; controller_index < engine->game.controller_count; ++controller_index) {
+            engine->game.controllers[controller_index].kind = original_kinds[controller_index];
+        }
+
+        if (result != MK_OK) {
+            mosul_bridge_set_error(engine, "Opponent AI order generation failed.");
+            return false;
+        }
+
+        mk_game_step(&engine->game);
+    }
+
+    return true;
+}
+
 const char *MosulEngineScenarioName(const MosulEngine *engine) {
     return engine == NULL ? "" : engine->game.scenario_name;
 }

@@ -12,7 +12,7 @@ usage() {
 Usage: scripts/run_mac_smoke.sh [options]
 
 Builds the native MOSUL Mac app bundles through Xcode and verifies that the
-expected app executables were produced.
+expected MosulGame, Mosul, and AIBattle app executables were produced.
 
 Options:
   --configuration NAME      Xcode configuration to build. Defaults to Debug.
@@ -110,6 +110,7 @@ build_app() {
 
 mkdir -p "$DERIVED_DATA_ROOT"
 
+build_app "MosulGame.xcodeproj" "MosulGame" "$DERIVED_DATA_ROOT/MosulGameDerivedData" "MosulGame"
 build_app "Mosul.xcodeproj" "Mosul" "$DERIVED_DATA_ROOT/MosulDerivedData" "Mosul"
 
 if [[ "$SKIP_AIBATTLE" -eq 0 ]]; then

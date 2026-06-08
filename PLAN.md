@@ -26,6 +26,7 @@ The project is ready to move from art/import work into playable-demo development
 ## Current Public Baseline
 
 - The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
+- `MosulGame.xcodeproj` builds the player-facing Mac game shell with an opening choice to command either the U.S. patrol or the opposing armed cell.
 - `Mosul.xcodeproj` now builds a native Mac SwiftUI shell from this repository.
 - `AIBattle.xcodeproj` builds a standalone Mac AI-vs-AI autoplay shell that reuses the Mosul model, tactical view, bridge, and C core sources.
 - `Mac/Mosul/App/` contains the SwiftUI presentation, map view, controls, and inspector.
@@ -37,9 +38,11 @@ The project is ready to move from art/import work into playable-demo development
 - `modernerKrieg` now carries runtime building-level PNGs, alpha overlays, and multistorey mask metadata for the Market / Commercial Streets map.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
-- `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the Mosul and AIBattle app bundles through Xcode.
+- `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the MosulGame, Mosul, and AIBattle app bundles through Xcode.
+- MosulGame gates manual orders to the selected human side and can run deterministic opponent-only AI ticks through the shared C bridge.
 - `scripts/capture_snapshot_evidence.sh` builds Mosul, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.
+- `scripts/capture_aibattle_movie.sh` builds AIBattle, runs a deterministic movie-only app launch, and writes ignored full-battle MOV captures plus a final tuning report under `snapshots/evidence/`.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
 - The shared Mac tactical map now draws civilian-risk as a dedicated underlay with stronger high-risk emphasis so civilians stay visible during contact/objective overlap.

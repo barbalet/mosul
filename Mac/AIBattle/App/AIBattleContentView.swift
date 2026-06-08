@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 
 private enum AIBattleCompletionReason {
@@ -546,23 +547,7 @@ struct AIBattleContentView: View {
     }
 
     private func progressSignature() -> String {
-        let objectives = model.objectives
-            .map { "\($0.id):\($0.controllingSide)" }
-            .joined(separator: ";")
-        let contacts = model.contacts
-            .map { "\($0.id):\($0.kind):\($0.resolved):\($0.confidence)" }
-            .joined(separator: ";")
-        let civilians = model.civilians
-            .map { "\($0.id):\($0.state):\(Int($0.x)):\(Int($0.y)):\($0.risk):\($0.stress)" }
-            .joined(separator: ";")
-        let interactions = model.interactions
-            .map { "\($0.id):\($0.state):\($0.searched):\($0.breached):\($0.open)" }
-            .joined(separator: ";")
-        let units = model.units
-            .map { "\($0.id):\($0.order):\($0.status):\(Int($0.x)):\(Int($0.y)):\(Int($0.targetX)):\(Int($0.targetY)):\($0.hasTarget):\($0.revealed):\($0.suppression):\($0.casualtyCount)" }
-            .joined(separator: ";")
-
-        return "\(objectives)|\(contacts)|\(civilians)|\(interactions)|\(units)"
+        AIBattleProgress.signature(for: model)
     }
 
     private func resultText(for reason: AIBattleCompletionReason) -> String {
@@ -608,6 +593,7 @@ struct AIBattleContentView: View {
 
 enum AIBattleEvidenceController {
     static let evidenceArgument = "--aibattle-evidence"
+    static let movieArgument = "--aibattle-movie"
 
     struct EvidenceRequest {
         var outputURL: URL?
@@ -620,10 +606,29 @@ enum AIBattleEvidenceController {
         var watchdogTicks = AIBattleTuningPolicy.watchdogTicks
     }
 
+    struct MovieRequest {
+        var outputURL: URL?
+        var reportURL: URL?
+        var size = CGSize(width: 1600, height: 1000)
+        var scale: CGFloat = 1.0
+        var framesPerSecond: Int32 = 6
+        var tailSeconds: Double = 2.0
+        var battleIndex: UInt32 = 1
+        var maxTicks = AIBattleTuningPolicy.maxTicks
+        var watchdogTicks = AIBattleTuningPolicy.watchdogTicks
+    }
+
     struct EvidenceResult {
         let outputURL: URL
         let reportURL: URL
         let snapshot: AIBattleTuningSnapshot
+    }
+
+    struct MovieResult {
+        let outputURL: URL
+        let reportURL: URL
+        let snapshot: AIBattleTuningSnapshot
+        let frameCount: Int
     }
 
     static func evidenceRequest(arguments: [String] = CommandLine.arguments) throws -> EvidenceRequest? {
@@ -673,6 +678,67 @@ enum AIBattleEvidenceController {
 
         if request.size.width <= 0 || request.size.height <= 0 || request.scale <= 0 {
             throw AIBattleEvidenceError.invalidArgument("AIBattle evidence width, height, and scale must be positive")
+        }
+
+        return request
+    }
+
+    static func movieRequest(arguments: [String] = CommandLine.arguments) throws -> MovieRequest? {
+        guard arguments.contains(movieArgument) else {
+            return nil
+        }
+
+        var request = MovieRequest()
+        var index = 1
+        while index < arguments.count {
+            let argument = arguments[index]
+
+            switch argument {
+            case movieArgument:
+                index += 1
+            case "--aibattle-movie-output":
+                request.outputURL = URL(fileURLWithPath: try value(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-movie-report":
+                request.reportURL = URL(fileURLWithPath: try value(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-movie-width":
+                request.size.width = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-movie-height":
+                request.size.height = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-movie-scale":
+                request.scale = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-movie-fps":
+                request.framesPerSecond = try int32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-movie-tail-seconds":
+                request.tailSeconds = try doubleValue(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-movie-battle":
+                request.battleIndex = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-movie-max-ticks":
+                request.maxTicks = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-movie-watchdog-ticks":
+                request.watchdogTicks = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            default:
+                index += 1
+            }
+        }
+
+        if request.size.width <= 0 || request.size.height <= 0 || request.scale <= 0 {
+            throw AIBattleEvidenceError.invalidArgument("AIBattle movie width, height, and scale must be positive")
+        }
+        if request.framesPerSecond <= 0 {
+            throw AIBattleEvidenceError.invalidArgument("AIBattle movie frames per second must be positive")
+        }
+        if request.tailSeconds < 0 {
+            throw AIBattleEvidenceError.invalidArgument("AIBattle movie tail seconds cannot be negative")
         }
 
         return request
@@ -730,6 +796,105 @@ enum AIBattleEvidenceController {
     }
 
     @MainActor
+    static func saveMovie(request: MovieRequest) throws -> MovieResult {
+        let model = MosulGameModel()
+        model.reset(battleIndex: request.battleIndex)
+
+        let outputURL = request.outputURL ?? URL(fileURLWithPath: model.mosulRoot)
+            .appendingPathComponent("snapshots/evidence/aibattle-battle-\(request.battleIndex).mov")
+        let reportURL = request.reportURL ?? outputURL
+            .deletingPathExtension()
+            .appendingPathExtension("txt")
+        let encoder = try AIBattleMovieEncoder(
+            outputURL: outputURL,
+            size: request.size,
+            scale: request.scale,
+            framesPerSecond: request.framesPerSecond
+        )
+
+        var lastResult = "Battle \(request.battleIndex) running"
+        var previousSignature = AIBattleProgress.signature(for: model)
+        var stagnantTicks: UInt32 = 0
+        var finalSnapshot = AIBattleTuningSnapshot(
+            model: model,
+            battleNumber: request.battleIndex,
+            maxTicks: request.maxTicks,
+            watchdogTicks: request.watchdogTicks,
+            stagnantTicks: stagnantTicks,
+            lastResult: lastResult
+        )
+
+        try encoder.append(
+            renderMovieFrame(model: model, snapshot: finalSnapshot, request: request)
+        )
+
+        while model.tick < request.maxTicks {
+            model.runAI()
+
+            if let reason = AIBattleTuningPolicy.completionReason(for: model, maxTicks: request.maxTicks) {
+                lastResult = AIBattleTuningPolicy.resultText(for: reason, maxTicks: request.maxTicks)
+            } else if AIBattleProgress.updateWatchdog(
+                model: model,
+                previousSignature: &previousSignature,
+                stagnantTicks: &stagnantTicks
+            ) >= request.watchdogTicks {
+                lastResult = AIBattleTuningPolicy.resultText(for: .stalled, maxTicks: request.maxTicks)
+            }
+
+            finalSnapshot = AIBattleTuningSnapshot(
+                model: model,
+                battleNumber: request.battleIndex,
+                maxTicks: request.maxTicks,
+                watchdogTicks: request.watchdogTicks,
+                stagnantTicks: stagnantTicks,
+                lastResult: lastResult
+            )
+
+            try encoder.append(
+                renderMovieFrame(model: model, snapshot: finalSnapshot, request: request)
+            )
+
+            if lastResult != "Battle \(request.battleIndex) running" {
+                break
+            }
+        }
+
+        if model.tick >= request.maxTicks && model.score.outcome == 0 {
+            lastResult = "Opposing AI held to tick \(request.maxTicks)"
+            finalSnapshot = AIBattleTuningSnapshot(
+                model: model,
+                battleNumber: request.battleIndex,
+                maxTicks: request.maxTicks,
+                watchdogTicks: request.watchdogTicks,
+                stagnantTicks: stagnantTicks,
+                lastResult: lastResult
+            )
+        }
+
+        let tailFrames = Int((request.tailSeconds * Double(request.framesPerSecond)).rounded())
+        if tailFrames > 0 {
+            let frame = try renderMovieFrame(model: model, snapshot: finalSnapshot, request: request)
+            for _ in 0..<tailFrames {
+                try encoder.append(frame)
+            }
+        }
+
+        try encoder.finish()
+        try FileManager.default.createDirectory(
+            at: reportURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try finalSnapshot.reportText.write(to: reportURL, atomically: true, encoding: .utf8)
+
+        return MovieResult(
+            outputURL: outputURL,
+            reportURL: reportURL,
+            snapshot: finalSnapshot,
+            frameCount: encoder.frameCount
+        )
+    }
+
+    @MainActor
     private static func writeEvidenceImage(
         model: MosulGameModel,
         snapshot: AIBattleTuningSnapshot,
@@ -761,6 +926,26 @@ enum AIBattleEvidenceController {
         try data.write(to: outputURL, options: .atomic)
     }
 
+    @MainActor
+    private static func renderMovieFrame(
+        model: MosulGameModel,
+        snapshot: AIBattleTuningSnapshot,
+        request: MovieRequest
+    ) throws -> CGImage {
+        let content = AIBattleMovieFrameView(model: model, snapshot: snapshot)
+            .frame(width: request.size.width, height: request.size.height)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.proposedSize = ProposedViewSize(width: request.size.width, height: request.size.height)
+        renderer.scale = request.scale
+
+        guard let image = renderer.cgImage else {
+            throw AIBattleEvidenceError.renderFailed
+        }
+
+        return image
+    }
+
     private static func value(after option: String, in arguments: [String], at index: Int) throws -> String {
         let valueIndex = index + 1
         guard valueIndex < arguments.count else {
@@ -786,6 +971,362 @@ enum AIBattleEvidenceController {
         }
 
         return value
+    }
+
+    private static func int32Value(after option: String, in arguments: [String], at index: Int) throws -> Int32 {
+        let rawValue = try value(after: option, in: arguments, at: index)
+        guard let value = Int32(rawValue) else {
+            throw AIBattleEvidenceError.invalidArgument("\(option) requires a signed integer value")
+        }
+
+        return value
+    }
+}
+
+private enum AIBattleProgress {
+    @MainActor
+    static func signature(for model: MosulGameModel) -> String {
+        let objectives = model.objectives
+            .map { "\($0.id):\($0.controllingSide)" }
+            .joined(separator: ";")
+        let contacts = model.contacts
+            .map { "\($0.id):\($0.kind):\($0.resolved):\($0.confidence)" }
+            .joined(separator: ";")
+        let civilians = model.civilians
+            .map { "\($0.id):\($0.state):\(Int($0.x)):\(Int($0.y)):\($0.risk):\($0.stress)" }
+            .joined(separator: ";")
+        let interactions = model.interactions
+            .map { "\($0.id):\($0.state):\($0.searched):\($0.breached):\($0.open)" }
+            .joined(separator: ";")
+        let units = model.units
+            .map { "\($0.id):\($0.order):\($0.status):\(Int($0.x)):\(Int($0.y)):\(Int($0.targetX)):\(Int($0.targetY)):\($0.hasTarget):\($0.revealed):\($0.suppression):\($0.casualtyCount)" }
+            .joined(separator: ";")
+
+        return "\(objectives)|\(contacts)|\(civilians)|\(interactions)|\(units)"
+    }
+
+    @MainActor
+    @discardableResult
+    static func updateWatchdog(
+        model: MosulGameModel,
+        previousSignature: inout String,
+        stagnantTicks: inout UInt32
+    ) -> UInt32 {
+        let currentSignature = signature(for: model)
+        if currentSignature == previousSignature {
+            stagnantTicks += 1
+        } else {
+            stagnantTicks = 0
+            previousSignature = currentSignature
+        }
+
+        return stagnantTicks
+    }
+}
+
+private final class AIBattleMovieEncoder {
+    private let writer: AVAssetWriter
+    private let input: AVAssetWriterInput
+    private let adaptor: AVAssetWriterInputPixelBufferAdaptor
+    private let pixelWidth: Int
+    private let pixelHeight: Int
+    private let framesPerSecond: Int32
+    private(set) var frameCount = 0
+
+    init(outputURL: URL, size: CGSize, scale: CGFloat, framesPerSecond: Int32) throws {
+        pixelWidth = Self.evenPixelDimension(size.width * scale)
+        pixelHeight = Self.evenPixelDimension(size.height * scale)
+        self.framesPerSecond = framesPerSecond
+
+        try FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+        let settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: pixelWidth,
+            AVVideoHeightKey: pixelHeight,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: max(8_000_000, pixelWidth * pixelHeight * 4),
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+            ]
+        ]
+
+        input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+        input.expectsMediaDataInRealTime = false
+
+        let sourceAttributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
+            kCVPixelBufferWidthKey as String: pixelWidth,
+            kCVPixelBufferHeightKey as String: pixelHeight,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: sourceAttributes
+        )
+
+        guard writer.canAdd(input) else {
+            throw AIBattleEvidenceError.movieWriterFailed("Could not add the movie video input.")
+        }
+        writer.add(input)
+
+        guard writer.startWriting() else {
+            throw AIBattleEvidenceError.movieWriterFailed(writer.error?.localizedDescription ?? "Could not start movie writing.")
+        }
+        writer.startSession(atSourceTime: .zero)
+    }
+
+    func append(_ image: CGImage) throws {
+        guard writer.status == .writing else {
+            throw AIBattleEvidenceError.movieWriterFailed(writer.error?.localizedDescription ?? "Movie writer is not active.")
+        }
+
+        while !input.isReadyForMoreMediaData {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+
+        guard let pixelBuffer = makePixelBuffer(from: image) else {
+            throw AIBattleEvidenceError.movieEncodingFailed
+        }
+
+        let presentationTime = CMTime(value: CMTimeValue(frameCount), timescale: framesPerSecond)
+        guard adaptor.append(pixelBuffer, withPresentationTime: presentationTime) else {
+            throw AIBattleEvidenceError.movieWriterFailed(writer.error?.localizedDescription ?? "Could not append a movie frame.")
+        }
+        frameCount += 1
+    }
+
+    func finish() throws {
+        input.markAsFinished()
+
+        let semaphore = DispatchSemaphore(value: 0)
+        writer.finishWriting {
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        guard writer.status == .completed else {
+            throw AIBattleEvidenceError.movieWriterFailed(writer.error?.localizedDescription ?? "Could not finish movie writing.")
+        }
+    }
+
+    private func makePixelBuffer(from image: CGImage) -> CVPixelBuffer? {
+        guard let pool = adaptor.pixelBufferPool else {
+            return nil
+        }
+
+        var pixelBuffer: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer) == kCVReturnSuccess,
+              let pixelBuffer else {
+            return nil
+        }
+
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+        }
+
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(pixelBuffer),
+            width: pixelWidth,
+            height: pixelHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else {
+            return nil
+        }
+
+        context.setFillColor(NSColor.windowBackgroundColor.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+        return pixelBuffer
+    }
+
+    private static func evenPixelDimension(_ value: CGFloat) -> Int {
+        let rounded = max(2, Int(value.rounded(.down)))
+        return rounded % 2 == 0 ? rounded : rounded - 1
+    }
+}
+
+private struct AIBattleMovieFrameView: View {
+    @ObservedObject var model: MosulGameModel
+    let snapshot: AIBattleTuningSnapshot
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            HStack(spacing: 0) {
+                TacticalMapView(model: model)
+                    .padding(12)
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    battlePanel
+                    scorePanel
+                    tuningPanel
+                    civilianPanel
+                    unitsPanel
+                    contactsPanel
+                    Spacer(minLength: 0)
+                }
+                .padding(12)
+                .frame(width: 410, alignment: .topLeading)
+            }
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AIBattle")
+                    .font(.headline)
+                Text("Battle \(snapshot.battleNumber) | Tick \(snapshot.tick) | \(snapshot.resultState)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(snapshot.lastResult)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+    }
+
+    private var battlePanel: some View {
+        panel("Autoplay") {
+            metricRow("State", snapshot.pacingState)
+            metricRow("Last Result", snapshot.lastResult)
+            metricRow("Limit", "\(snapshot.maxTicks) ticks")
+            metricRow("Watchdog", "\(snapshot.stagnantTicks)/\(snapshot.watchdogTicks)")
+        }
+    }
+
+    private var scorePanel: some View {
+        panel("Score") {
+            metricRow("Total", "\(snapshot.score.total)")
+            metricRow("Outcome", snapshot.resultState)
+            metricRow("Objectives", "\(snapshot.score.controlledObjectives) controlled / \(snapshot.score.contestedObjectives) contested")
+            metricRow("Civilian Risk", "\(snapshot.score.civilianRisk)")
+            metricRow("Casualties", "US \(snapshot.score.playerCasualties) | Opfor \(snapshot.score.opforCasualties) | Civ \(snapshot.score.civilianCasualties)")
+        }
+    }
+
+    private var tuningPanel: some View {
+        panel("Tuning") {
+            metricRow("Risk", snapshot.riskState)
+            metricRow("Contacts", "\(snapshot.unresolvedContacts)/\(snapshot.contactReports) unresolved")
+            metricRow("Interactions", "\(snapshot.actionableInteractions) actionable / \(snapshot.unresolvedInteractions) unresolved")
+            metricRow("Pressure", "\(snapshot.resultPressureState) / \(snapshot.resultPressureScore)")
+            metricRow("Partial", snapshot.partialSettlementState)
+            Text(snapshot.firstTuningTarget)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
+        }
+    }
+
+    private var civilianPanel: some View {
+        panel("Civilians") {
+            metricRow("Tracked", "\(snapshot.civilianCount)")
+            metricRow("At Risk", "\(snapshot.civiliansAtRisk)")
+            metricRow("High Risk", "\(snapshot.highRiskCivilians)")
+            metricRow("Wounded/Dead", "\(snapshot.woundedCivilians)/\(snapshot.deadCivilians)")
+        }
+    }
+
+    private var unitsPanel: some View {
+        panel("Units") {
+            ForEach(model.units.prefix(6)) { unit in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Circle()
+                        .fill(sideColor(unit.side))
+                        .frame(width: 7, height: 7)
+                    Text(unit.name)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text("\(orderName(unit.order)) \(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private var contactsPanel: some View {
+        panel("Contacts") {
+            if model.contacts.isEmpty {
+                Text("No reports yet.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.contacts.prefix(5)) { contact in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(contactName(contact.kind))
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text("T\(contact.tick) \(Int(contact.x)),\(Int(contact.y))")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+            content()
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func metricRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+        }
+        .font(.caption2)
+    }
+
+    private func sideColor(_ side: Int32) -> Color {
+        switch side {
+        case 1:
+            return Color(red: 0.24, green: 0.48, blue: 0.73)
+        case 2:
+            return Color(red: 0.68, green: 0.22, blue: 0.18)
+        case 3:
+            return Color(red: 0.82, green: 0.67, blue: 0.34)
+        default:
+            return Color.gray
+        }
     }
 }
 
@@ -867,6 +1408,8 @@ enum AIBattleEvidenceError: LocalizedError {
     case invalidArgument(String)
     case renderFailed
     case pngEncodingFailed
+    case movieEncodingFailed
+    case movieWriterFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -876,6 +1419,10 @@ enum AIBattleEvidenceError: LocalizedError {
             return "Could not render the AIBattle evidence view."
         case .pngEncodingFailed:
             return "Could not encode the AIBattle evidence PNG."
+        case .movieEncodingFailed:
+            return "Could not encode an AIBattle movie frame."
+        case .movieWriterFailed(let message):
+            return "Could not write the AIBattle movie: \(message)"
         }
     }
 }

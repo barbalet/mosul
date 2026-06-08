@@ -158,6 +158,40 @@ enum MosulMapMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum MosulPlayableSide: Int32, CaseIterable, Identifiable {
+    case usPatrol = 1
+    case opposingCell = 2
+
+    var id: Int32 { rawValue }
+
+    var title: String {
+        switch self {
+        case .usPatrol:
+            return "U.S. Patrol"
+        case .opposingCell:
+            return "Opposing Cell"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .usPatrol:
+            return "Stabilize the market streets, resolve contacts, and protect civilians."
+        case .opposingCell:
+            return "Disrupt the patrol, preserve hidden positions, and keep the district unsettled."
+        }
+    }
+
+    var opponent: MosulPlayableSide {
+        switch self {
+        case .usPatrol:
+            return .opposingCell
+        case .opposingCell:
+            return .usPatrol
+        }
+    }
+}
+
 @MainActor
 final class MosulGameModel: ObservableObject {
     @Published var scenarioName = "MOSUL"
@@ -178,9 +212,12 @@ final class MosulGameModel: ObservableObject {
     @Published var score = MosulScore()
     @Published var afterAction = MosulAfterAction()
     @Published var mode: MosulMapMode = .select
+    @Published var playableSide: MosulPlayableSide?
+    @Published var playerNotice = ""
 
     private var engine: OpaquePointer?
     private var mapLevelVisibilityInitialized = false
+    private var battleIndex: UInt32 = 1
     let modernerKriegRoot: String
 
     var mosulRoot: String {
@@ -207,8 +244,21 @@ final class MosulGameModel: ObservableObject {
         units.first(where: { $0.selected })
     }
 
+    var selectedUnitCanReceiveOrders: Bool {
+        guard let selectedUnit else { return false }
+        return canIssueOrders(to: selectedUnit)
+    }
+
+    var commandSideTitle: String {
+        playableSide?.title ?? "Choose Side"
+    }
+
+    var opponentSideTitle: String {
+        playableSide?.opponent.title ?? "Opponent"
+    }
+
     var selectedInteractionTasks: [MosulInteraction] {
-        guard selectedUnit != nil else { return [] }
+        guard selectedUnitCanReceiveOrders else { return [] }
 
         return interactions.sorted { first, second in
             if first.actionable != second.actionable {
@@ -222,6 +272,14 @@ final class MosulGameModel: ObservableObject {
             }
             return first.priority > second.priority
         }
+    }
+
+    func canIssueOrders(to unit: MosulUnit) -> Bool {
+        guard let playableSide else {
+            return true
+        }
+
+        return unit.side == playableSide.rawValue
     }
 
     var visibleMapLevels: [MosulMapLevel] {
@@ -246,8 +304,23 @@ final class MosulGameModel: ObservableObject {
 
     func reset(battleIndex: UInt32 = 1) {
         guard let engine else { return }
+        self.battleIndex = battleIndex
         _ = MosulEngineResetBattle(engine, battleIndex)
         refresh()
+    }
+
+    func startPlayableBattle(as side: MosulPlayableSide) {
+        playableSide = side
+        playerNotice = "Command selected: \(side.title)."
+        reset(battleIndex: battleIndex)
+        selectFirstControlledUnit()
+    }
+
+    func resetPlayableBattle() {
+        reset(battleIndex: battleIndex)
+        if playableSide != nil {
+            selectFirstControlledUnit()
+        }
     }
 
     func step() {
@@ -259,6 +332,17 @@ final class MosulGameModel: ObservableObject {
     func runAI(steps: UInt32 = 1) {
         guard let engine else { return }
         _ = MosulEngineRunAI(engine, steps)
+        refresh()
+    }
+
+    func runOpponentAI(steps: UInt32 = 1) {
+        guard let engine else { return }
+
+        if let playableSide {
+            _ = MosulEngineRunAIForSide(engine, playableSide.opponent.rawValue, steps)
+        } else {
+            _ = MosulEngineRunAI(engine, steps)
+        }
         refresh()
     }
 
@@ -282,6 +366,11 @@ final class MosulGameModel: ObservableObject {
 
     func issueSearch(_ interaction: MosulInteraction) {
         guard let engine else { return }
+        guard selectedUnitCanReceiveOrders else {
+            playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            return
+        }
+
         _ = interaction.id.withCString { interactionID in
             MosulEngineIssueSelectedSearch(engine, interactionID)
         }
@@ -290,6 +379,11 @@ final class MosulGameModel: ObservableObject {
 
     func issueBreach(_ interaction: MosulInteraction) {
         guard let engine else { return }
+        guard selectedUnitCanReceiveOrders else {
+            playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            return
+        }
+
         _ = interaction.id.withCString { interactionID in
             MosulEngineIssueSelectedBreach(engine, interactionID)
         }
@@ -298,6 +392,11 @@ final class MosulGameModel: ObservableObject {
 
     func routeToInteraction(_ interaction: MosulInteraction) {
         guard let engine else { return }
+        guard selectedUnitCanReceiveOrders else {
+            playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            return
+        }
+
         _ = interaction.id.withCString { interactionID in
             MosulEngineIssueSelectedRouteToInteraction(engine, interactionID)
         }
@@ -311,9 +410,19 @@ final class MosulGameModel: ObservableObject {
         case .select:
             _ = MosulEngineSelectUnitAt(engine, Float(x), Float(y))
         case .move:
+            guard selectedUnitCanReceiveOrders else {
+                playerNotice = "Select a \(commandSideTitle) unit before moving."
+                mode = .select
+                return
+            }
             _ = MosulEngineIssueSelectedMove(engine, Float(x), Float(y))
             mode = .select
         case .investigate:
+            guard selectedUnitCanReceiveOrders else {
+                playerNotice = "Select a \(commandSideTitle) unit before investigating."
+                mode = .select
+                return
+            }
             _ = MosulEngineIssueSelectedInvestigate(engine, Float(x), Float(y))
             mode = .select
         }
@@ -383,7 +492,23 @@ final class MosulGameModel: ObservableObject {
 
     private func issueOrder(_ order: Int32) {
         guard let engine else { return }
+        guard selectedUnitCanReceiveOrders else {
+            playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            return
+        }
+
         _ = MosulEngineIssueSelectedOrder(engine, order)
+        refresh()
+    }
+
+    private func selectFirstControlledUnit() {
+        guard let engine,
+              let playableSide,
+              let unit = units.first(where: { $0.side == playableSide.rawValue }) else {
+            return
+        }
+
+        _ = MosulEngineSelectUnit(engine, unit.id)
         refresh()
     }
 
@@ -596,8 +721,8 @@ final class MosulGameModel: ObservableObject {
 
 func sideName(_ side: Int32) -> String {
     switch side {
-    case 1: return "Player"
-    case 2: return "Opposing"
+    case 1: return "U.S. Patrol"
+    case 2: return "Opposing Cell"
     case 3: return "Civilian"
     default: return "Neutral"
     }

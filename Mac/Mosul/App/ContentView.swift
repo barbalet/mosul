@@ -5,6 +5,19 @@ struct ContentView: View {
     @State private var snapshotStatus = ""
 
     var body: some View {
+        ZStack {
+            gameLayout
+                .disabled(model.playableSide == nil)
+                .blur(radius: model.playableSide == nil ? 1.2 : 0)
+
+            if model.playableSide == nil {
+                sideSelectionOverlay
+                    .padding(24)
+            }
+        }
+    }
+
+    private var gameLayout: some View {
         VStack(spacing: 0) {
             header
             Divider()
@@ -23,7 +36,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(MosulVersion.displayName)
                     .font(.headline)
-                Text("\(model.scenarioName)  |  \(model.mapName)  |  Tick \(model.tick)")
+                Text("\(model.scenarioName)  |  \(model.commandSideTitle) vs \(model.opponentSideTitle)  |  Tick \(model.tick)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -39,33 +52,80 @@ struct ContentView: View {
             .frame(width: 260)
 
             Button("Hold") { model.issueHold() }
-                .disabled(model.selectedUnit == nil)
+                .disabled(!model.selectedUnitCanReceiveOrders)
             Button("Overwatch") { model.issueOverwatch() }
-                .disabled(model.selectedUnit == nil)
+                .disabled(!model.selectedUnitCanReceiveOrders)
             Button("Rally") { model.issueRally() }
-                .disabled(model.selectedUnit == nil)
+                .disabled(!model.selectedUnitCanReceiveOrders)
 
             Divider()
                 .frame(height: 24)
 
             Button("Step") { model.step() }
-            Button("AI Tick") { model.runAI() }
-            Button("AI x10") { model.runAI(steps: 10) }
+            Button("Opponent Tick") { model.runOpponentAI() }
+                .disabled(model.playableSide == nil)
+            Button("Opponent x10") { model.runOpponentAI(steps: 10) }
+                .disabled(model.playableSide == nil)
             Button {
                 saveSnapshot()
             } label: {
                 Label("Snapshot", systemImage: "camera")
             }
-            Button("Reset") { model.reset() }
+            Button("Reset") { model.resetPlayableBattle() }
         }
         .buttonStyle(.bordered)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
     }
 
+    private var sideSelectionOverlay: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("MosulGame")
+                    .font(.title2.weight(.semibold))
+                Text("Market / Commercial Streets, Mosul, 2003")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                ForEach(MosulPlayableSide.allCases) { side in
+                    sideSelectionButton(side)
+                }
+            }
+        }
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+        }
+        .frame(maxWidth: 560)
+    }
+
+    private func sideSelectionButton(_ side: MosulPlayableSide) -> some View {
+        Button {
+            model.startPlayableBattle(as: side)
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(side.title)
+                    .font(.headline)
+                Text(side.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: 230, height: 104, alignment: .topLeading)
+            .padding(12)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(side == .usPatrol ? Color.blue : Color.red)
+    }
+
     private var inspector: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                commandPanel
                 scorePanel
                 afterActionPanel
                 selectedPanel
@@ -80,6 +140,12 @@ struct ContentView: View {
                         .foregroundStyle(.red)
                 }
 
+                if !model.playerNotice.isEmpty {
+                    Text(model.playerNotice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 if !snapshotStatus.isEmpty {
                     Text(snapshotStatus)
                         .font(.caption2)
@@ -91,10 +157,40 @@ struct ContentView: View {
         }
     }
 
+    private var commandPanel: some View {
+        panel("Command") {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.commandSideTitle)
+                        .font(.caption.weight(.semibold))
+                    Text("Opponent: \(model.opponentSideTitle)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Menu("Side") {
+                    ForEach(MosulPlayableSide.allCases) { side in
+                        Button(side.title) {
+                            model.startPlayableBattle(as: side)
+                        }
+                    }
+                }
+                .font(.caption)
+            }
+
+            if let playableSide = model.playableSide {
+                Text(playableSide.subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private var scorePanel: some View {
         panel("Situation") {
             metricRow("Score", "\(model.score.total)")
-            metricRow("Outcome", outcomeName(model.score.outcome))
+            metricRow("US Outcome", outcomeName(model.score.outcome))
             metricRow("Objectives", "\(model.score.controlledObjectives) controlled / \(model.score.contestedObjectives) contested")
             metricRow("Interactions", "\(model.score.interactionPoints)")
             metricRow("Civilian Risk", "\(model.score.civilianRisk)")
@@ -106,7 +202,7 @@ struct ContentView: View {
         let report = model.afterAction
         let score = report.score
 
-        return panel("After Action") {
+        return panel("U.S. After Action") {
             HStack {
                 Text(outcomeName(score.outcome))
                     .font(.caption.weight(.semibold))
@@ -153,6 +249,7 @@ struct ContentView: View {
                 metricRow("Position", "\(Int(unit.x)), \(Int(unit.y)) m")
                 metricRow("Soldiers", "\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
                 metricRow("Suppression", "\(unit.suppression)")
+                metricRow("Control", model.canIssueOrders(to: unit) ? "Command" : "Intel")
 
                 let tasks = Array(model.selectedInteractionTasks.prefix(5))
                 if !tasks.isEmpty {
@@ -197,6 +294,11 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
+                        if model.canIssueOrders(to: unit) {
+                            Text("You")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.blue)
+                        }
                         Text("\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
                             .font(.caption.monospacedDigit())
                     }
