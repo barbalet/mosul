@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = MosulGameModel()
+    @State private var snapshotStatus = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,6 +51,11 @@ struct ContentView: View {
             Button("Step") { model.step() }
             Button("AI Tick") { model.runAI() }
             Button("AI x10") { model.runAI(steps: 10) }
+            Button {
+                saveSnapshot()
+            } label: {
+                Label("Snapshot", systemImage: "camera")
+            }
             Button("Reset") { model.reset() }
         }
         .buttonStyle(.bordered)
@@ -70,6 +76,13 @@ struct ContentView: View {
                     Text(model.lastError)
                         .font(.caption)
                         .foregroundStyle(.red)
+                }
+
+                if !snapshotStatus.isEmpty {
+                    Text(snapshotStatus)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
             }
             .padding(14)
@@ -180,5 +193,14 @@ struct ContentView: View {
                 .monospacedDigit()
         }
         .font(.caption)
+    }
+
+    private func saveSnapshot() {
+        do {
+            let url = try SnapshotController.saveMapSnapshot(model: model)
+            snapshotStatus = "\(SnapshotController.codename): \(url.path)"
+        } catch {
+            snapshotStatus = "\(SnapshotController.codename): \(error.localizedDescription)"
+        }
     }
 }

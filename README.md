@@ -30,6 +30,8 @@ The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It i
 
 The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, overlays C-core units, objectives, civilians, and contact reports, and provides basic controls for selection, movement, investigation orders, single-step simulation, reset, and deterministic AI ticks.
 
+The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development.
+
 ## Tactical Identity
 
 MOSUL is commanded at unit scale, but it should preserve meaningful detail inside units. A squad should not be just one counter with a hit point number. Soldiers need roles, weapons, ammo, wounds, suppression, stance, exposure, and equipment. A medic, breacher, automatic rifleman, marksman, squad leader, vehicle crew, or RPG gunner should change the tactical problem.

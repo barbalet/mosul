@@ -107,6 +107,12 @@ final class MosulGameModel: ObservableObject {
     private var engine: OpaquePointer?
     let modernerKriegRoot: String
 
+    var mosulRoot: String {
+        URL(fileURLWithPath: modernerKriegRoot)
+            .deletingLastPathComponent()
+            .path
+    }
+
     init() {
         modernerKriegRoot = Self.findModernerKriegRoot()
         engine = modernerKriegRoot.withCString { root in

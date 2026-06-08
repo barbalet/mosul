@@ -31,3 +31,5 @@ modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
 ```
 
 It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, overlays C-core units/objectives/civilians/contact reports, and can step the simulation or run the deterministic AI loop.
+
+The codenamed `snapshot` test path writes the current tactical-map render to timestamped PNG files under `snapshots/` at the repository root. The directory is ignored by git so local visual samples can be captured freely while checking battle states, civilian risk, contact reports, and future sprite rendering.

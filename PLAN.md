@@ -15,6 +15,7 @@ The project is ready to move from art/import work into playable-demo development
 - The engine has deterministic coverage for core rules, board projection, scenario loading, asset manifests, AI/autoplay, replay validation, balance checks, and the core/frontend boundary.
 - Source art and generated runtime art for the 2003 demo exist under `modernerKrieg/assets/mosul/`.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
+- The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 
 ## Playable Demo Target
 
@@ -93,3 +94,4 @@ Do not pause engine development for a large new art pass. Add these assets only 
 5. Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
 6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
 7. Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+8. Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
