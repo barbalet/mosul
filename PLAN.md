@@ -16,8 +16,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 8 - Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
 - Completed: Step 9 - Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
 - Completed: Step 10 - Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
-- Active: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
-- Active detail: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.
+- Completed: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
+- Active: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
+- Active detail: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -39,6 +40,7 @@ The project is ready to move from art/import work into playable-demo development
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
 - The shared Mac tactical map now draws civilian-risk as a dedicated underlay with stronger high-risk emphasis so civilians stay visible during contact/objective overlap.
+- The shared Mac tactical map now uses edge-aware objective/unit labels and clustered contact offsets so dense markers stay inside the rendered map frame.
 - The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
 - The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
 - AIBattle now shows a compact tuning panel for pacing, risk, result criteria, contacts, interactions, and the first evidence-driven readability target.
@@ -129,5 +131,7 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Run and inspect repeatable AIBattle evidence to identify the first readability and pacing tuning target.
 10. Done 2026-06-08: Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
    - Active detail 2026-06-08: Apply the first AIBattle evidence target by making civilian risk easier to scan during active contact without hiding tactical markers.
-11. Active: Keep edge labels and dense contact stacks inside the shared tactical-map frame.
+11. Done 2026-06-08: Keep edge labels and dense contact stacks inside the shared tactical-map frame.
    - Active detail 2026-06-08: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.
+12. Active: Tune AIBattle pacing and result criteria using the repeatable evidence report.
+   - Active detail 2026-06-08: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.

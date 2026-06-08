@@ -30,7 +30,7 @@ The app currently loads the 2003 Market / Commercial Streets scenario from:
 modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
 ```
 
-It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and can step the simulation, run the deterministic AI loop, or issue selected-unit interaction actions.
+It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays edge-aware tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, clustered contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and can step the simulation, run the deterministic AI loop, or issue selected-unit interaction actions.
 
 Run the repeatable Mac app smoke path from the repository root:
 

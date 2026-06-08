@@ -21,9 +21,7 @@ struct TacticalMapView: View {
                         .interpolation(.high)
                         .frame(width: layout.size.width, height: layout.size.height)
                         .position(x: layout.rect.midX, y: layout.rect.midY)
-                        .overlay(alignment: .topLeading) {
-                            overlayContent(layout: layout)
-                        }
+                    overlayContent(layout: layout, containerSize: proxy.size)
                 } else {
                     Text("Map PNG not found")
                         .font(.headline)
@@ -48,7 +46,7 @@ struct TacticalMapView: View {
     }
 
     @ViewBuilder
-    private func overlayContent(layout: MapLayout) -> some View {
+    private func overlayContent(layout: MapLayout, containerSize: CGSize) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(model.civilians.filter { $0.risk > 0 }) { civilian in
                 let point = screenPoint(x: civilian.x, y: civilian.y, layout: layout)
@@ -58,6 +56,7 @@ struct TacticalMapView: View {
             ForEach(model.objectives) { objective in
                 let point = screenPoint(x: objective.x, y: objective.y, layout: layout)
                 objectiveMarker(objective, at: point, layout: layout)
+                objectiveLabel(objective, at: point, layout: layout)
             }
 
             ForEach(model.civilians) { civilian in
@@ -65,9 +64,9 @@ struct TacticalMapView: View {
                 civilianMarker(civilian, at: point)
             }
 
-            ForEach(model.contacts) { contact in
+            ForEach(Array(model.contacts.enumerated()), id: \.element.id) { index, contact in
                 let point = screenPoint(x: contact.x, y: contact.y, layout: layout)
-                contactMarker(contact, at: point)
+                contactMarker(contact, at: contactMarkerPoint(contact, basePoint: point, index: index, layout: layout))
             }
 
             ForEach(model.interactions) { interaction in
@@ -77,33 +76,25 @@ struct TacticalMapView: View {
 
             ForEach(model.units) { unit in
                 let point = screenPoint(x: unit.x, y: unit.y, layout: layout)
+                let markerPoint = clampedMarkerPoint(point, size: unitMarkerSize(unit, layout: layout), layout: layout)
 
                 if unit.hasTarget {
-                    let target = screenPoint(x: unit.targetX, y: unit.targetY, layout: layout)
+                    let targetPoint = screenPoint(x: unit.targetX, y: unit.targetY, layout: layout)
+                    let target = clampedMarkerPoint(targetPoint, size: CGSize(width: 24, height: 24), layout: layout)
                     Path { path in
-                        path.move(to: point)
+                        path.move(to: markerPoint)
                         path.addLine(to: target)
                     }
                     .stroke(markerColor(unit.routeMarkerID, fallback: sideColor(unit.side)).opacity(0.78), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                     routeDestinationMarker(unit, at: target)
                 }
 
-                VStack(spacing: 2) {
-                    ZStack(alignment: .topTrailing) {
-                        unitGlyph(unit, layout: layout)
-                        unitStatusStack(unit)
-                            .offset(x: 13, y: -12)
-                    }
-                    Text(shortName(unit.name))
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .padding(.horizontal, 3)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
-                }
-                .position(point)
+                unitMarker(unit, at: markerPoint, layout: layout)
+                unitLabel(unit, at: markerPoint, layout: layout)
             }
         }
-        .frame(width: layout.size.width, height: layout.size.height)
-        .position(x: layout.rect.midX, y: layout.rect.midY)
+        .frame(width: containerSize.width, height: containerSize.height, alignment: .topLeading)
+        .allowsHitTesting(false)
     }
 
     private func shortName(_ name: String) -> String {
@@ -122,19 +113,34 @@ struct TacticalMapView: View {
             Circle()
                 .stroke(ringColor, style: StrokeStyle(lineWidth: 2.5, dash: objective.controllingSide == 0 ? [5, 4] : []))
                 .frame(width: diameter, height: diameter)
-            VStack(spacing: 1) {
-                Image(systemName: "flag.fill")
-                    .font(.system(size: 10, weight: .bold))
-                Text(objective.label.isEmpty ? objective.name : objective.label)
-                    .font(.system(size: 8, weight: .semibold))
-                    .lineLimit(1)
-                    .padding(.horizontal, 3)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
-            }
-            .foregroundStyle(color)
-            .offset(y: -(diameter * 0.5 + 14))
         }
         .position(point)
+    }
+
+    private func objectiveLabel(_ objective: MosulObjective, at point: CGPoint, layout: MapLayout) -> some View {
+        let label = objective.label.isEmpty ? objective.name : objective.label
+        let diameter = max(22, objective.radius * 2 * layout.scale)
+        let color = sideColor(objective.controllingSide)
+        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 112), height: 18)
+        let labelPoint = clampedLabelPoint(
+            near: point,
+            offset: CGSize(width: 0, height: -(diameter * 0.5 + 14)),
+            size: labelSize,
+            layout: layout
+        )
+
+        return HStack(spacing: 3) {
+            Image(systemName: "flag.fill")
+                .font(.system(size: 9, weight: .bold))
+            Text(label)
+                .font(.system(size: 8, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .foregroundStyle(color)
+        .frame(width: labelSize.width, height: labelSize.height)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+        .position(labelPoint)
     }
 
     private func civilianMarker(_ civilian: MosulCivilian, at point: CGPoint) -> some View {
@@ -213,6 +219,51 @@ struct TacticalMapView: View {
         .position(point)
     }
 
+    private func contactMarkerPoint(_ contact: MosulContact, basePoint: CGPoint, index: Int, layout: MapLayout) -> CGPoint {
+        let markerSize = CGSize(width: 24, height: 24)
+        let clampedBase = clampedMarkerPoint(basePoint, size: markerSize, layout: layout)
+        let clusteredContacts = Array(model.contacts.enumerated()).filter { pair in
+            let otherIndex = pair.offset
+            let otherContact = pair.element
+            guard otherContact.id != contact.id || otherIndex == index else { return false }
+            let otherPoint = screenPoint(x: otherContact.x, y: otherContact.y, layout: layout)
+            return pointDistance(basePoint, otherPoint) <= 34
+        }
+
+        guard clusteredContacts.count > 1,
+              let clusterIndex = clusteredContacts.firstIndex(where: { $0.element.id == contact.id }) else {
+            return clampedBase
+        }
+
+        if clusterIndex == 0 {
+            return clampedBase
+        }
+
+        let inward: CGFloat = clampedBase.x >= layout.rect.midX ? -1 : 1
+        let row = clusterIndex % 3
+        let column = clusterIndex / 3
+        let rowYOffset: CGFloat
+
+        switch row {
+        case 1:
+            rowYOffset = -10
+        case 2:
+            rowYOffset = 10
+        default:
+            rowYOffset = 0
+        }
+
+        let offset = CGSize(
+            width: inward * CGFloat(14 + row * 13),
+            height: CGFloat(column * 12) + rowYOffset
+        )
+        return clampedMarkerPoint(
+            CGPoint(x: clampedBase.x + offset.width, y: clampedBase.y + offset.height),
+            size: markerSize,
+            layout: layout
+        )
+    }
+
     private func interactionMarker(_ interaction: MosulInteraction, at point: CGPoint, layout: MapLayout) -> some View {
         let color = markerColor(interaction.markerID, fallback: .teal)
         let symbol = markerSymbol(interaction.markerID, fallback: interactionSymbol(interaction))
@@ -268,6 +319,83 @@ struct TacticalMapView: View {
                 .foregroundStyle(color)
         }
         .position(point)
+    }
+
+    private func unitMarker(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
+        let count = unitStatusCount(unit)
+        let statusSize = CGSize(width: 24, height: CGFloat(max(count, 1) * 20))
+        let statusPoint = clampedLabelPoint(
+            near: point,
+            offset: unitStatusOffset(at: point, layout: layout),
+            size: statusSize,
+            layout: layout
+        )
+
+        return ZStack(alignment: .topLeading) {
+            unitGlyph(unit, layout: layout)
+                .position(point)
+
+            if count > 0 {
+                unitStatusStack(unit)
+                    .position(statusPoint)
+            }
+        }
+        .frame(width: layout.size.width, height: layout.size.height)
+    }
+
+    private func unitLabel(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
+        let label = shortName(unit.name)
+        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 90), height: 16)
+        let spriteSize = unitSpriteSize(unit, layout: layout)
+        let yOffset = point.y > layout.rect.maxY - 36 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
+        let labelPoint = clampedLabelPoint(
+            near: point,
+            offset: CGSize(width: 0, height: yOffset),
+            size: labelSize,
+            layout: layout
+        )
+
+        return Text(label)
+            .font(.system(size: 9, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(width: labelSize.width, height: labelSize.height)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .position(labelPoint)
+    }
+
+    private func unitMarkerSize(_ unit: MosulUnit, layout: MapLayout) -> CGSize {
+        let size = unitSpriteSize(unit, layout: layout)
+        return CGSize(width: size + 28, height: size + 26)
+    }
+
+    private func unitStatusOffset(at point: CGPoint, layout: MapLayout) -> CGSize {
+        let horizontal: CGFloat = point.x >= layout.rect.midX ? -18 : 18
+        let vertical: CGFloat = point.y <= layout.rect.minY + 34 ? 18 : -18
+
+        return CGSize(width: horizontal, height: vertical)
+    }
+
+    private func unitStatusCount(_ unit: MosulUnit) -> Int {
+        var count = 0
+
+        if !unit.selectionMarkerID.isEmpty {
+            count += 1
+        }
+        if unit.hidden {
+            count += 1
+        }
+        if !unit.orderMarkerID.isEmpty {
+            count += 1
+        }
+        if !unit.suppressionMarkerID.isEmpty {
+            count += 1
+        }
+        if !unit.casualtyMarkerID.isEmpty {
+            count += 1
+        }
+
+        return count
     }
 
     private func unitStatusStack(_ unit: MosulUnit) -> some View {
@@ -547,6 +675,49 @@ struct TacticalMapView: View {
         }
 
         return max(unit.selected ? 34 : 30, min(unit.selected ? 62 : 54, layout.scale * 15))
+    }
+
+    private func labelWidth(for text: String, minWidth: CGFloat = 42, maxWidth: CGFloat) -> CGFloat {
+        let estimated = CGFloat(text.count) * 5.6 + 14
+        return min(max(estimated, minWidth), maxWidth)
+    }
+
+    private func clampedLabelPoint(near point: CGPoint, offset: CGSize, size: CGSize, layout: MapLayout) -> CGPoint {
+        clampedMarkerPoint(
+            CGPoint(x: point.x + offset.width, y: point.y + offset.height),
+            size: size,
+            layout: layout
+        )
+    }
+
+    private func clampedMarkerPoint(_ point: CGPoint, size: CGSize, layout: MapLayout) -> CGPoint {
+        let inset: CGFloat = 6
+        let halfWidth = size.width * 0.5 + inset
+        let halfHeight = size.height * 0.5 + inset
+        let lowerX = layout.rect.minX + halfWidth
+        let upperX = layout.rect.maxX - halfWidth
+        let lowerY = layout.rect.minY + halfHeight
+        let upperY = layout.rect.maxY - halfHeight
+
+        return CGPoint(
+            x: clamped(point.x, lower: lowerX, upper: upperX),
+            y: clamped(point.y, lower: lowerY, upper: upperY)
+        )
+    }
+
+    private func clamped(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
+        guard lower <= upper else {
+            return (lower + upper) * 0.5
+        }
+
+        return min(max(value, lower), upper)
+    }
+
+    private func pointDistance(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
+        let dx = lhs.x - rhs.x
+        let dy = lhs.y - rhs.y
+
+        return sqrt(dx * dx + dy * dy)
     }
 
     private func mapLayout(in size: CGSize) -> MapLayout {
