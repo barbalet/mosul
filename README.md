@@ -28,7 +28,7 @@ modernerKrieg/assets/mosul/manifests/
 
 The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
 
-The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and provides controls for selection, movement, investigation, breach/search, single-step simulation, reset, and deterministic AI ticks.
+The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and provides controls for selection, movement, investigation, breach/search, single-step simulation, reset, and deterministic AI ticks.
 
 The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development. For repeatable visual evidence, run:
 
@@ -171,6 +171,14 @@ The smoke script builds both `Mosul.xcodeproj` and `AIBattle.xcodeproj` into `bu
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, and runtime overview PNG directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
 
 The standalone `AIBattle.xcodeproj` app is an AI-vs-AI autoplay shell over the same shared Mosul Swift model, tactical map view, C bridge, and `modernerKrieg` core sources. It continuously runs both sides under AI, visualizes battle state, records each result, and restarts with the next seeded battle variant so playability and visualization can be exercised before the main player-facing app is complete.
+
+AIBattle also has a repeatable evidence path for pacing and readability review:
+
+```sh
+scripts/capture_aibattle_evidence.sh
+```
+
+That command builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with the first tuning target identified from the sample.
 
 ```sh
 xcodebuild -project AIBattle.xcodeproj \

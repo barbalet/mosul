@@ -30,7 +30,7 @@ The app currently loads the 2003 Market / Commercial Streets scenario from:
 modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
 ```
 
-It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and can step the simulation, run the deterministic AI loop, or issue selected-unit interaction actions.
+It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and can step the simulation, run the deterministic AI loop, or issue selected-unit interaction actions.
 
 Run the repeatable Mac app smoke path from the repository root:
 
@@ -51,6 +51,14 @@ scripts/capture_snapshot_evidence.sh
 The evidence script builds the Mosul app, runs a deterministic snapshot-only launch with AI ticks, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
 
 `AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a settled result, tick limit, or watchdog stall.
+
+Run repeatable AIBattle pacing/readability evidence from the repository root:
+
+```sh
+scripts/capture_aibattle_evidence.sh
+```
+
+The evidence script builds AIBattle, runs a deterministic evidence-only launch, and writes `snapshots/evidence/aibattle-evidence.png` plus `snapshots/evidence/aibattle-evidence.txt` with a compact tuning report.
 
 Build AIBattle from the repository root:
 

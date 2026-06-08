@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private enum AIBattleCompletionReason {
@@ -5,6 +6,143 @@ private enum AIBattleCompletionReason {
     case playerPartial
     case opforHeld
     case stalled
+}
+
+struct AIBattleTuningSnapshot {
+    let battleNumber: UInt32
+    let tick: UInt32
+    let maxTicks: UInt32
+    let watchdogTicks: UInt32
+    let stagnantTicks: UInt32
+    let score: MosulScore
+    let unitCount: Int
+    let playerUnits: Int
+    let opforUnits: Int
+    let movingUnits: Int
+    let engagedUnits: Int
+    let contactReports: Int
+    let unresolvedContacts: Int
+    let civilianCount: Int
+    let civiliansAtRisk: Int
+    let highRiskCivilians: Int
+    let woundedCivilians: Int
+    let deadCivilians: Int
+    let interactionCount: Int
+    let unresolvedInteractions: Int
+    let actionableInteractions: Int
+    let lastResult: String
+
+    @MainActor
+    init(
+        model: MosulGameModel,
+        battleNumber: UInt32,
+        maxTicks: UInt32,
+        watchdogTicks: UInt32,
+        stagnantTicks: UInt32,
+        lastResult: String
+    ) {
+        self.battleNumber = battleNumber
+        tick = model.tick
+        self.maxTicks = maxTicks
+        self.watchdogTicks = watchdogTicks
+        self.stagnantTicks = stagnantTicks
+        score = model.score
+        unitCount = model.units.count
+        playerUnits = model.units.filter { $0.side == 1 }.count
+        opforUnits = model.units.filter { $0.side == 2 }.count
+        movingUnits = model.units.filter { $0.order == 2 }.count
+        engagedUnits = model.units.filter { $0.hasTarget || $0.suppression > 0 }.count
+        contactReports = model.contacts.count
+        unresolvedContacts = model.contacts.filter { !$0.resolved }.count
+        civilianCount = model.civilians.count
+        civiliansAtRisk = model.civilians.filter { $0.risk > 0 }.count
+        highRiskCivilians = model.civilians.filter { $0.risk >= 4 }.count
+        woundedCivilians = model.civilians.filter { $0.state == 5 }.count
+        deadCivilians = model.civilians.filter { $0.state == 6 }.count
+        interactionCount = model.interactions.count
+        unresolvedInteractions = model.interactions.filter { !$0.searched && !$0.breached && !$0.open }.count
+        actionableInteractions = model.interactions.filter { $0.actionable || $0.routeAvailable }.count
+        self.lastResult = lastResult
+    }
+
+    var pacingState: String {
+        if stagnantTicks >= watchdogTicks / 2 {
+            return "Watchdog pressure"
+        }
+        if tick >= maxTicks && score.outcome == 0 {
+            return "Time-limit hold"
+        }
+        if contactReports == 0 && tick >= 20 {
+            return "Slow contact"
+        }
+        if engagedUnits > 0 || unresolvedContacts > 0 {
+            return "Contact active"
+        }
+        if movingUnits > 0 {
+            return "Maneuvering"
+        }
+        return "Opening"
+    }
+
+    var riskState: String {
+        if deadCivilians > 0 || woundedCivilians > 0 {
+            return "Civilian harm"
+        }
+        if highRiskCivilians > 0 {
+            return "High risk visible"
+        }
+        if civiliansAtRisk > 0 {
+            return "Risk visible"
+        }
+        return "Low risk"
+    }
+
+    var resultState: String {
+        switch score.outcome {
+        case 1:
+            return "Player AI success"
+        case 2:
+            return "Player AI partial"
+        default:
+            return tick >= maxTicks ? "Opposing AI holds" : "In progress"
+        }
+    }
+
+    var firstTuningTarget: String {
+        if highRiskCivilians > 0 || woundedCivilians > 0 || deadCivilians > 0 {
+            return "Prioritize civilian-risk readability when risk rings overlap contact and objective markers."
+        }
+        if unresolvedContacts > 3 {
+            return "Group contact reports by urgency so the battle state reads faster during active fights."
+        }
+        if unresolvedInteractions > 0 && actionableInteractions == 0 {
+            return "Clarify route/action affordances for unresolved search, breach, and rooftop interactions."
+        }
+        if tick >= maxTicks && score.outcome == 0 {
+            return "Tune AI pacing or result criteria so held battles explain why the opposing AI survived."
+        }
+        return "Keep gathering AIBattle evidence; no single readability bottleneck dominates this sample."
+    }
+
+    var reportText: String {
+        """
+        AIBattle Evidence
+        battle=\(battleNumber)
+        tick=\(tick)
+        max_ticks=\(maxTicks)
+        result=\(resultState)
+        last_result=\(lastResult)
+        pacing=\(pacingState)
+        risk=\(riskState)
+        score=\(score.total)
+        objectives=\(score.controlledObjectives) controlled / \(score.contestedObjectives) contested
+        contacts=\(contactReports) total / \(unresolvedContacts) unresolved
+        units=\(unitCount) total / \(playerUnits) player / \(opforUnits) opfor / \(movingUnits) moving / \(engagedUnits) engaged
+        civilians=\(civilianCount) total / \(civiliansAtRisk) at_risk / \(highRiskCivilians) high_risk / \(woundedCivilians) wounded / \(deadCivilians) dead
+        interactions=\(interactionCount) total / \(unresolvedInteractions) unresolved / \(actionableInteractions) actionable
+        first_tuning_target=\(firstTuningTarget)
+        """
+    }
 }
 
 struct AIBattleContentView: View {
@@ -87,6 +225,7 @@ struct AIBattleContentView: View {
             VStack(alignment: .leading, spacing: 14) {
                 battlePanel
                 scorePanel
+                tuningPanel
                 civilianPanel
                 unitsPanel
                 contactsPanel
@@ -132,6 +271,25 @@ struct AIBattleContentView: View {
             metricRow("At Risk", "\(atRisk)")
             metricRow("Wounded", "\(wounded)")
             metricRow("Dead", "\(dead)")
+        }
+    }
+
+    private var tuningPanel: some View {
+        let snapshot = tuningSnapshot
+
+        return panel("Tuning") {
+            metricRow("Pacing", snapshot.pacingState)
+            metricRow("Risk", snapshot.riskState)
+            metricRow("Result", snapshot.resultState)
+            metricRow("Contacts", "\(snapshot.unresolvedContacts)/\(snapshot.contactReports) unresolved")
+            metricRow("Interactions", "\(snapshot.actionableInteractions) actionable / \(snapshot.unresolvedInteractions) unresolved")
+
+            Divider()
+
+            Text(snapshot.firstTuningTarget)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -204,6 +362,17 @@ struct AIBattleContentView: View {
         default:
             return model.tick >= maxTicks ? "Opposing AI Holds" : "In Progress"
         }
+    }
+
+    private var tuningSnapshot: AIBattleTuningSnapshot {
+        AIBattleTuningSnapshot(
+            model: model,
+            battleNumber: battleNumber,
+            maxTicks: maxTicks,
+            watchdogTicks: watchdogTicks,
+            stagnantTicks: stagnantTicks,
+            lastResult: lastResult
+        )
     }
 
     private func advanceBattle() {
@@ -340,5 +509,281 @@ struct AIBattleContentView: View {
                 .monospacedDigit()
         }
         .font(.caption)
+    }
+}
+
+enum AIBattleEvidenceController {
+    static let evidenceArgument = "--aibattle-evidence"
+
+    struct EvidenceRequest {
+        var outputURL: URL?
+        var reportURL: URL?
+        var size = CGSize(width: 1600, height: 1000)
+        var scale: CGFloat = 1.0
+        var aiTicks: UInt32 = 80
+        var battleIndex: UInt32 = 1
+        var maxTicks: UInt32 = 120
+        var watchdogTicks: UInt32 = 40
+    }
+
+    struct EvidenceResult {
+        let outputURL: URL
+        let reportURL: URL
+        let snapshot: AIBattleTuningSnapshot
+    }
+
+    static func evidenceRequest(arguments: [String] = CommandLine.arguments) throws -> EvidenceRequest? {
+        guard arguments.contains(evidenceArgument) else {
+            return nil
+        }
+
+        var request = EvidenceRequest()
+        var index = 1
+        while index < arguments.count {
+            let argument = arguments[index]
+
+            switch argument {
+            case evidenceArgument:
+                index += 1
+            case "--aibattle-output":
+                request.outputURL = URL(fileURLWithPath: try value(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-report":
+                request.reportURL = URL(fileURLWithPath: try value(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-width":
+                request.size.width = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-height":
+                request.size.height = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-scale":
+                request.scale = CGFloat(try doubleValue(after: argument, in: arguments, at: index))
+                index += 2
+            case "--aibattle-ai-ticks":
+                request.aiTicks = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-battle":
+                request.battleIndex = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-max-ticks":
+                request.maxTicks = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            case "--aibattle-watchdog-ticks":
+                request.watchdogTicks = try uint32Value(after: argument, in: arguments, at: index)
+                index += 2
+            default:
+                index += 1
+            }
+        }
+
+        if request.size.width <= 0 || request.size.height <= 0 || request.scale <= 0 {
+            throw AIBattleEvidenceError.invalidArgument("AIBattle evidence width, height, and scale must be positive")
+        }
+
+        return request
+    }
+
+    @MainActor
+    static func saveEvidence(request: EvidenceRequest) throws -> EvidenceResult {
+        let model = MosulGameModel()
+        model.reset(battleIndex: request.battleIndex)
+
+        var ticksRun: UInt32 = 0
+        var lastResult = "Battle \(request.battleIndex) running"
+        while ticksRun < request.aiTicks && ticksRun < request.maxTicks {
+            model.runAI()
+            ticksRun += 1
+
+            if model.score.outcome == 1 {
+                lastResult = "Player AI decisive win"
+                break
+            }
+            if model.score.outcome == 2 {
+                lastResult = "Player AI partial win"
+                break
+            }
+        }
+
+        if ticksRun >= request.maxTicks && model.score.outcome == 0 {
+            lastResult = "Opposing AI held to tick \(request.maxTicks)"
+        }
+
+        let snapshot = AIBattleTuningSnapshot(
+            model: model,
+            battleNumber: request.battleIndex,
+            maxTicks: request.maxTicks,
+            watchdogTicks: request.watchdogTicks,
+            stagnantTicks: 0,
+            lastResult: lastResult
+        )
+        let outputURL = request.outputURL ?? URL(fileURLWithPath: model.mosulRoot)
+            .appendingPathComponent("snapshots/evidence/aibattle-evidence.png")
+        let reportURL = request.reportURL ?? outputURL
+            .deletingPathExtension()
+            .appendingPathExtension("txt")
+
+        try writeEvidenceImage(
+            model: model,
+            snapshot: snapshot,
+            outputURL: outputURL,
+            size: request.size,
+            scale: request.scale
+        )
+        try FileManager.default.createDirectory(
+            at: reportURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try snapshot.reportText.write(to: reportURL, atomically: true, encoding: .utf8)
+
+        return EvidenceResult(outputURL: outputURL, reportURL: reportURL, snapshot: snapshot)
+    }
+
+    @MainActor
+    private static func writeEvidenceImage(
+        model: MosulGameModel,
+        snapshot: AIBattleTuningSnapshot,
+        outputURL: URL,
+        size: CGSize,
+        scale: CGFloat
+    ) throws {
+        try FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        let content = AIBattleEvidenceView(model: model, snapshot: snapshot)
+            .frame(width: size.width, height: size.height)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
+        renderer.scale = scale
+
+        guard let image = renderer.cgImage else {
+            throw AIBattleEvidenceError.renderFailed
+        }
+
+        let representation = NSBitmapImageRep(cgImage: image)
+        guard let data = representation.representation(using: .png, properties: [:]) else {
+            throw AIBattleEvidenceError.pngEncodingFailed
+        }
+
+        try data.write(to: outputURL, options: .atomic)
+    }
+
+    private static func value(after option: String, in arguments: [String], at index: Int) throws -> String {
+        let valueIndex = index + 1
+        guard valueIndex < arguments.count else {
+            throw AIBattleEvidenceError.invalidArgument("\(option) requires a value")
+        }
+
+        return arguments[valueIndex]
+    }
+
+    private static func doubleValue(after option: String, in arguments: [String], at index: Int) throws -> Double {
+        let rawValue = try value(after: option, in: arguments, at: index)
+        guard let value = Double(rawValue) else {
+            throw AIBattleEvidenceError.invalidArgument("\(option) requires a numeric value")
+        }
+
+        return value
+    }
+
+    private static func uint32Value(after option: String, in arguments: [String], at index: Int) throws -> UInt32 {
+        let rawValue = try value(after: option, in: arguments, at: index)
+        guard let value = UInt32(rawValue) else {
+            throw AIBattleEvidenceError.invalidArgument("\(option) requires an unsigned integer value")
+        }
+
+        return value
+    }
+}
+
+private struct AIBattleEvidenceView: View {
+    @ObservedObject var model: MosulGameModel
+    let snapshot: AIBattleTuningSnapshot
+
+    var body: some View {
+        HStack(spacing: 0) {
+            TacticalMapView(model: model)
+                .padding(14)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 14) {
+                Text("AIBattle Evidence")
+                    .font(.title3.weight(.semibold))
+                Text("Battle \(snapshot.battleNumber) | Tick \(snapshot.tick)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                panel("Pacing") {
+                    metricRow("State", snapshot.pacingState)
+                    metricRow("Result", snapshot.resultState)
+                    metricRow("Score", "\(snapshot.score.total)")
+                    metricRow("Contacts", "\(snapshot.unresolvedContacts)/\(snapshot.contactReports) unresolved")
+                    metricRow("Interactions", "\(snapshot.actionableInteractions) actionable")
+                }
+
+                panel("Civilian Risk") {
+                    metricRow("State", snapshot.riskState)
+                    metricRow("At Risk", "\(snapshot.civiliansAtRisk)")
+                    metricRow("High Risk", "\(snapshot.highRiskCivilians)")
+                    metricRow("Wounded/Dead", "\(snapshot.woundedCivilians)/\(snapshot.deadCivilians)")
+                }
+
+                panel("First Target") {
+                    Text(snapshot.firstTuningTarget)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(width: 390, alignment: .topLeading)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            content()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func metricRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+        }
+        .font(.caption)
+    }
+}
+
+enum AIBattleEvidenceError: LocalizedError {
+    case invalidArgument(String)
+    case renderFailed
+    case pngEncodingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidArgument(let message):
+            return message
+        case .renderFailed:
+            return "Could not render the AIBattle evidence view."
+        case .pngEncodingFailed:
+            return "Could not encode the AIBattle evidence PNG."
+        }
     }
 }

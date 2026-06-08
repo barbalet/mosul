@@ -14,8 +14,10 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 6 - Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
 - Completed: Step 7 - Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
 - Completed: Step 8 - Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
-- Active: Step 9 - Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
-- Active detail: Run and inspect repeatable AIBattle evidence to identify the first readability and pacing tuning target.
+- Completed: Step 9 - Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
+- Completed: Step 10 - Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
+- Active: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
+- Active detail: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -33,10 +35,13 @@ The project is ready to move from art/import work into playable-demo development
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the Mosul and AIBattle app bundles through Xcode.
 - `scripts/capture_snapshot_evidence.sh` builds Mosul, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
+- `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
+- The shared Mac tactical map now draws civilian-risk as a dedicated underlay with stronger high-risk emphasis so civilians stay visible during contact/objective overlap.
 - The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
 - The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
+- AIBattle now shows a compact tuning panel for pacing, risk, result criteria, contacts, interactions, and the first evidence-driven readability target.
 
 ## Playable Demo Target
 
@@ -120,5 +125,9 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
 8. Done 2026-06-08: Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
    - Active detail 2026-06-08: Capture repeatable tactical-map PNG evidence for the current sprite/interaction/civilian overlay state and document how to use it in visual checks.
-9. Active: Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
+9. Done 2026-06-08: Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
    - Active detail 2026-06-08: Run and inspect repeatable AIBattle evidence to identify the first readability and pacing tuning target.
+10. Done 2026-06-08: Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
+   - Active detail 2026-06-08: Apply the first AIBattle evidence target by making civilian risk easier to scan during active contact without hiding tactical markers.
+11. Active: Keep edge labels and dense contact stacks inside the shared tactical-map frame.
+   - Active detail 2026-06-08: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.

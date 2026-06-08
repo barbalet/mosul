@@ -50,6 +50,11 @@ struct TacticalMapView: View {
     @ViewBuilder
     private func overlayContent(layout: MapLayout) -> some View {
         ZStack(alignment: .topLeading) {
+            ForEach(model.civilians.filter { $0.risk > 0 }) { civilian in
+                let point = screenPoint(x: civilian.x, y: civilian.y, layout: layout)
+                civilianRiskMarker(civilian, at: point)
+            }
+
             ForEach(model.objectives) { objective in
                 let point = screenPoint(x: objective.x, y: objective.y, layout: layout)
                 objectiveMarker(objective, at: point, layout: layout)
@@ -136,14 +141,8 @@ struct TacticalMapView: View {
         let wounded = civilian.state == 5
         let dead = civilian.state == 6
         let color = markerColor(civilian.markerID, fallback: dead ? Color.gray : wounded ? Color.red : Color.yellow)
-        let riskSize = CGFloat(14 + min(max(civilian.risk, 0), 8) * 3)
 
         return ZStack {
-            if civilian.risk > 0 {
-                Circle()
-                    .stroke(markerColor("civilian_risk", fallback: Color.orange).opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                    .frame(width: riskSize, height: riskSize)
-            }
             Circle()
                 .fill(color.opacity(dead ? 0.65 : 0.9))
                 .frame(width: dead || wounded ? 10 : 8, height: dead || wounded ? 10 : 8)
@@ -155,6 +154,42 @@ struct TacticalMapView: View {
             }
         }
         .position(point)
+    }
+
+    private func civilianRiskMarker(_ civilian: MosulCivilian, at point: CGPoint) -> some View {
+        let risk = max(0, Int(civilian.risk))
+        let clampedRisk = min(risk, 8)
+        let color = markerColor("civilian_risk", fallback: Color.orange)
+        let diameter = CGFloat(26 + clampedRisk * 6)
+        let highRisk = risk >= 4
+
+        return ZStack {
+            Circle()
+                .fill(color.opacity(highRisk ? 0.16 : 0.08))
+                .frame(width: diameter, height: diameter)
+            Circle()
+                .stroke(
+                    color.opacity(highRisk ? 0.96 : 0.72),
+                    style: StrokeStyle(lineWidth: highRisk ? 2.4 : 1.8, dash: highRisk ? [] : [5, 4])
+                )
+                .frame(width: diameter, height: diameter)
+
+            if highRisk {
+                Circle()
+                    .stroke(Color.white.opacity(0.70), lineWidth: 0.8)
+                    .frame(width: diameter + 6, height: diameter + 6)
+                Text("R\(risk)")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .foregroundStyle(.black.opacity(0.82))
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(color.opacity(0.88), in: RoundedRectangle(cornerRadius: 3))
+                    .offset(x: diameter * 0.36, y: -diameter * 0.36)
+            }
+        }
+        .allowsHitTesting(false)
+        .position(point)
+        .accessibilityLabel("Civilian risk \(risk)")
     }
 
     private func contactMarker(_ contact: MosulContact, at point: CGPoint) -> some View {
