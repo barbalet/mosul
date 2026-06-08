@@ -67,6 +67,7 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 scorePanel
+                afterActionPanel
                 selectedPanel
                 unitsPanel
                 contactsPanel
@@ -92,9 +93,51 @@ struct ContentView: View {
     private var scorePanel: some View {
         panel("Situation") {
             metricRow("Score", "\(model.score.total)")
+            metricRow("Outcome", outcomeName(model.score.outcome))
             metricRow("Objectives", "\(model.score.controlledObjectives) controlled / \(model.score.contestedObjectives) contested")
+            metricRow("Interactions", "\(model.score.interactionPoints)")
             metricRow("Civilian Risk", "\(model.score.civilianRisk)")
             metricRow("Casualties", "US \(model.score.playerCasualties) | Opfor \(model.score.opforCasualties) | Civ \(model.score.civilianCasualties)")
+        }
+    }
+
+    private var afterActionPanel: some View {
+        let report = model.afterAction
+        let score = report.score
+
+        return panel("After Action") {
+            HStack {
+                Text(outcomeName(score.outcome))
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(outcomeColor(score.outcome).opacity(0.16), in: Capsule())
+                    .foregroundStyle(outcomeColor(score.outcome))
+                Spacer()
+                Text("\(score.total)")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+            }
+
+            Text(report.narrative.isEmpty ? "No after-action narrative loaded." : report.narrative)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            metricRow("Objectives", signed(score.objectivePoints))
+            metricRow("Interactions", signed(score.interactionPoints))
+            metricRow("Civilian Risk", signed(-score.civilianRiskPenalty))
+            metricRow("Casualties", signed(-score.casualtyPenalty))
+            metricRow("Time", signed(-score.timePenalty))
+
+            if !report.summary.isEmpty {
+                Text(report.summary)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -193,6 +236,27 @@ struct ContentView: View {
                 .monospacedDigit()
         }
         .font(.caption)
+    }
+
+    private func signed(_ value: Int32) -> String {
+        if value > 0 {
+            return "+\(value)"
+        }
+
+        return "\(value)"
+    }
+
+    private func outcomeColor(_ outcome: Int32) -> Color {
+        switch outcome {
+        case 1:
+            return .green
+        case 2:
+            return .orange
+        case 3:
+            return .red
+        default:
+            return .secondary
+        }
     }
 
     private func saveSnapshot() {

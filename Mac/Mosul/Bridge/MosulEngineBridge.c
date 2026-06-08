@@ -710,6 +710,23 @@ size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *o
     return count;
 }
 
+static void mosul_bridge_copy_score_summary(MosulScoreSummary *out_score, const mk_score_t *score) {
+    memset(out_score, 0, sizeof(*out_score));
+    out_score->objective_points = score->objective_points;
+    out_score->interaction_points = score->interaction_points;
+    out_score->civilian_risk_penalty = score->civilian_risk_penalty;
+    out_score->casualty_penalty = score->casualty_penalty;
+    out_score->time_penalty = score->time_penalty;
+    out_score->total_score = score->total_score;
+    out_score->player_casualties = score->player_casualties;
+    out_score->opfor_casualties = score->opfor_casualties;
+    out_score->civilian_casualties = score->civilian_casualties;
+    out_score->civilian_risk = score->civilian_risk;
+    out_score->controlled_objectives = score->controlled_objectives;
+    out_score->contested_objectives = score->contested_objectives;
+    out_score->outcome = (int)score->outcome;
+}
+
 bool MosulEngineCopyScore(const MosulEngine *engine, MosulScoreSummary *out_score) {
     mk_score_t score;
 
@@ -717,18 +734,22 @@ bool MosulEngineCopyScore(const MosulEngine *engine, MosulScoreSummary *out_scor
         return false;
     }
 
-    memset(out_score, 0, sizeof(*out_score));
-    out_score->objective_points = score.objective_points;
-    out_score->civilian_risk_penalty = score.civilian_risk_penalty;
-    out_score->casualty_penalty = score.casualty_penalty;
-    out_score->time_penalty = score.time_penalty;
-    out_score->total_score = score.total_score;
-    out_score->player_casualties = score.player_casualties;
-    out_score->opfor_casualties = score.opfor_casualties;
-    out_score->civilian_casualties = score.civilian_casualties;
-    out_score->civilian_risk = score.civilian_risk;
-    out_score->controlled_objectives = score.controlled_objectives;
-    out_score->contested_objectives = score.contested_objectives;
-    out_score->outcome = (int)score.outcome;
+    mosul_bridge_copy_score_summary(out_score, &score);
+    return true;
+}
+
+bool MosulEngineCopyAfterAction(const MosulEngine *engine, MosulAfterActionSummary *out_report) {
+    mk_after_action_report_t report;
+
+    if (engine == NULL
+        || out_report == NULL
+        || mk_game_after_action_report(&engine->game, &report) != MK_OK) {
+        return false;
+    }
+
+    memset(out_report, 0, sizeof(*out_report));
+    mosul_bridge_copy_score_summary(&out_report->score, &report.score);
+    mosul_bridge_copy_text(out_report->summary, sizeof(out_report->summary), report.summary);
+    mosul_bridge_copy_text(out_report->narrative, sizeof(out_report->narrative), report.narrative);
     return true;
 }

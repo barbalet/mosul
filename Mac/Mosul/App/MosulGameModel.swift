@@ -78,6 +78,7 @@ struct MosulContact: Identifiable {
 struct MosulScore {
     var total: Int32 = 0
     var objectivePoints: Int32 = 0
+    var interactionPoints: Int32 = 0
     var civilianRiskPenalty: Int32 = 0
     var casualtyPenalty: Int32 = 0
     var timePenalty: Int32 = 0
@@ -88,6 +89,12 @@ struct MosulScore {
     var controlledObjectives: UInt32 = 0
     var contestedObjectives: UInt32 = 0
     var outcome: Int32 = 0
+}
+
+struct MosulAfterAction {
+    var score = MosulScore()
+    var summary = ""
+    var narrative = ""
 }
 
 enum MosulMapMode: String, CaseIterable, Identifiable {
@@ -113,6 +120,7 @@ final class MosulGameModel: ObservableObject {
     @Published var civilians: [MosulCivilian] = []
     @Published var contacts: [MosulContact] = []
     @Published var score = MosulScore()
+    @Published var afterAction = MosulAfterAction()
     @Published var mode: MosulMapMode = .select
 
     private var engine: OpaquePointer?
@@ -215,6 +223,7 @@ final class MosulGameModel: ObservableObject {
         refreshCivilians(engine)
         refreshContacts(engine)
         refreshScore(engine)
+        refreshAfterAction(engine)
     }
 
     private func issueOrder(_ order: Int32) {
@@ -334,6 +343,39 @@ final class MosulGameModel: ObservableObject {
         score = MosulScore(
             total: raw.total_score,
             objectivePoints: raw.objective_points,
+            interactionPoints: raw.interaction_points,
+            civilianRiskPenalty: raw.civilian_risk_penalty,
+            casualtyPenalty: raw.casualty_penalty,
+            timePenalty: raw.time_penalty,
+            playerCasualties: raw.player_casualties,
+            opforCasualties: raw.opfor_casualties,
+            civilianCasualties: raw.civilian_casualties,
+            civilianRisk: raw.civilian_risk,
+            controlledObjectives: raw.controlled_objectives,
+            contestedObjectives: raw.contested_objectives,
+            outcome: raw.outcome
+        )
+    }
+
+    private func refreshAfterAction(_ engine: OpaquePointer) {
+        var raw = MosulAfterActionSummary()
+        guard MosulEngineCopyAfterAction(engine, &raw) else {
+            afterAction = MosulAfterAction(score: score)
+            return
+        }
+
+        afterAction = MosulAfterAction(
+            score: score(from: raw.score),
+            summary: bridgeString(raw.summary),
+            narrative: bridgeString(raw.narrative)
+        )
+    }
+
+    private func score(from raw: MosulScoreSummary) -> MosulScore {
+        MosulScore(
+            total: raw.total_score,
+            objectivePoints: raw.objective_points,
+            interactionPoints: raw.interaction_points,
             civilianRiskPenalty: raw.civilian_risk_penalty,
             casualtyPenalty: raw.casualty_penalty,
             timePenalty: raw.time_penalty,
@@ -398,6 +440,15 @@ func statusName(_ status: Int32) -> String {
     case 2: return "Pinned"
     case 3: return "Broken"
     default: return "Ready"
+    }
+}
+
+func outcomeName(_ outcome: Int32) -> String {
+    switch outcome {
+    case 1: return "Success"
+    case 2: return "Partial"
+    case 3: return "Failure"
+    default: return "In Progress"
     }
 }
 

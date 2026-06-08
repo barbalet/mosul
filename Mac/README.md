@@ -30,7 +30,7 @@ The app currently loads the 2003 Market / Commercial Streets scenario from:
 modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
 ```
 
-It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, and contact reports, and can step the simulation or run the deterministic AI loop.
+It renders the runtime map overview from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, and contact reports, shows C-core after-action results in the inspector, and can step the simulation or run the deterministic AI loop.
 
 The codenamed `snapshot` test path writes the current tactical-map render to timestamped PNG files under `snapshots/` at the repository root. The directory is ignored by git so local visual samples can be captured freely while checking battle states, civilian risk, contact reports, and future sprite rendering.
 

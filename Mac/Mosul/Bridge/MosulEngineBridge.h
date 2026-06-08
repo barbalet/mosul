@@ -90,6 +90,7 @@ typedef struct {
 
 typedef struct {
     int objective_points;
+    int interaction_points;
     int civilian_risk_penalty;
     int casualty_penalty;
     int time_penalty;
@@ -102,6 +103,12 @@ typedef struct {
     uint32_t contested_objectives;
     int outcome;
 } MosulScoreSummary;
+
+typedef struct {
+    MosulScoreSummary score;
+    char summary[MOSUL_BRIDGE_TEXT_CAPACITY];
+    char narrative[MOSUL_BRIDGE_TEXT_CAPACITY];
+} MosulAfterActionSummary;
 
 MosulEngine *MosulEngineCreate(const char *moderner_krieg_root);
 void MosulEngineDestroy(MosulEngine *engine);
@@ -133,6 +140,7 @@ size_t MosulEngineCopyObjectives(const MosulEngine *engine, MosulObjectiveSummar
 size_t MosulEngineCopyCivilians(const MosulEngine *engine, MosulCivilianSummary *out_civilians, size_t capacity);
 size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *out_contacts, size_t capacity);
 bool MosulEngineCopyScore(const MosulEngine *engine, MosulScoreSummary *out_score);
+bool MosulEngineCopyAfterAction(const MosulEngine *engine, MosulAfterActionSummary *out_report);
 
 #ifdef __cplusplus
 }
