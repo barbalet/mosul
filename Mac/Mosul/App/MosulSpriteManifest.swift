@@ -121,6 +121,10 @@ final class MosulSpriteManifest {
     }
 
     private func spriteEntity(for unit: MosulUnit) -> String {
+        if !unit.spriteID.isEmpty {
+            return unit.spriteID
+        }
+
         let name = unit.name.lowercased()
 
         switch unit.side {

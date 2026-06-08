@@ -74,7 +74,7 @@ struct TacticalMapView: View {
                         path.move(to: point)
                         path.addLine(to: target)
                     }
-                    .stroke(sideColor(unit.side).opacity(0.78), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .stroke(markerColor(unit.routeMarkerID, fallback: sideColor(unit.side)).opacity(0.78), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                     routeDestinationMarker(unit, at: target)
                 }
 
@@ -103,13 +103,14 @@ struct TacticalMapView: View {
     private func objectiveMarker(_ objective: MosulObjective, at point: CGPoint, layout: MapLayout) -> some View {
         let diameter = max(22, objective.radius * 2 * layout.scale)
         let color = sideColor(objective.controllingSide)
+        let ringColor = markerColor(objective.markerID, fallback: color)
 
         return ZStack {
             Circle()
                 .fill(color.opacity(0.08))
                 .frame(width: diameter, height: diameter)
             Circle()
-                .stroke(color, style: StrokeStyle(lineWidth: 2.5, dash: objective.controllingSide == 0 ? [5, 4] : []))
+                .stroke(ringColor, style: StrokeStyle(lineWidth: 2.5, dash: objective.controllingSide == 0 ? [5, 4] : []))
                 .frame(width: diameter, height: diameter)
             VStack(spacing: 1) {
                 Image(systemName: "flag.fill")
@@ -129,13 +130,13 @@ struct TacticalMapView: View {
     private func civilianMarker(_ civilian: MosulCivilian, at point: CGPoint) -> some View {
         let wounded = civilian.state == 5
         let dead = civilian.state == 6
-        let color = dead ? Color.gray : wounded ? Color.red : Color.yellow
+        let color = markerColor(civilian.markerID, fallback: dead ? Color.gray : wounded ? Color.red : Color.yellow)
         let riskSize = CGFloat(14 + min(max(civilian.risk, 0), 8) * 3)
 
         return ZStack {
             if civilian.risk > 0 {
                 Circle()
-                    .stroke(Color.orange.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                    .stroke(markerColor("civilian_risk", fallback: Color.orange).opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
                     .frame(width: riskSize, height: riskSize)
             }
             Circle()
@@ -152,8 +153,8 @@ struct TacticalMapView: View {
     }
 
     private func contactMarker(_ contact: MosulContact, at point: CGPoint) -> some View {
-        let color = contactColor(contact)
-        let symbol = contactSymbol(contact)
+        let color = markerColor(contact.markerID, fallback: contactColor(contact))
+        let symbol = markerSymbol(contact.markerID, fallback: contactSymbol(contact))
 
         return ZStack {
             RoundedRectangle(cornerRadius: 2)
@@ -173,23 +174,25 @@ struct TacticalMapView: View {
     }
 
     private func routeDestinationMarker(_ unit: MosulUnit, at point: CGPoint) -> some View {
-        ZStack {
+        let color = markerColor(unit.targetMarkerID, fallback: sideColor(unit.side))
+
+        return ZStack {
             Circle()
-                .fill(sideColor(unit.side).opacity(0.16))
+                .fill(color.opacity(0.16))
                 .frame(width: 18, height: 18)
             Circle()
-                .stroke(sideColor(unit.side), lineWidth: 1.6)
+                .stroke(color, lineWidth: 1.6)
                 .frame(width: 18, height: 18)
-            Image(systemName: routeSymbol(unit.order))
+            Image(systemName: markerSymbol(unit.targetMarkerID, fallback: routeSymbol(unit.order)))
                 .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(sideColor(unit.side))
+                .foregroundStyle(color)
         }
         .position(point)
     }
 
     private func unitStatusStack(_ unit: MosulUnit) -> some View {
         VStack(spacing: 2) {
-            if unit.selected {
+            if !unit.selectionMarkerID.isEmpty {
                 markerChip(symbol: "scope", color: .white, background: sideColor(unit.side))
             }
             if unit.hidden && !unit.revealed {
@@ -197,14 +200,18 @@ struct TacticalMapView: View {
             } else if unit.hidden && unit.revealed {
                 markerChip(symbol: "eye.fill", color: .white, background: .orange)
             }
-            if unit.order != 0 {
-                markerChip(symbol: orderSymbol(unit.order), color: .white, background: sideColor(unit.side))
+            if !unit.orderMarkerID.isEmpty {
+                markerChip(
+                    symbol: markerSymbol(unit.orderMarkerID, fallback: orderSymbol(unit.order)),
+                    color: .white,
+                    background: markerColor(unit.orderMarkerID, fallback: sideColor(unit.side))
+                )
             }
-            if unit.suppression > 0 {
-                suppressionMarker(unit.suppression)
+            if !unit.suppressionMarkerID.isEmpty {
+                suppressionMarker(unit.suppression, markerID: unit.suppressionMarkerID)
             }
-            if unit.casualtyCount > 0 {
-                casualtyMarker(unit)
+            if !unit.casualtyMarkerID.isEmpty {
+                casualtyMarker(unit, markerID: unit.casualtyMarkerID)
             }
         }
     }
@@ -221,15 +228,16 @@ struct TacticalMapView: View {
         }
     }
 
-    private func suppressionMarker(_ suppression: Int32) -> some View {
+    private func suppressionMarker(_ suppression: Int32, markerID: String) -> some View {
         let clamped = max(0, min(CGFloat(suppression) / 20.0, 1.0))
+        let color = markerColor(markerID, fallback: Color.orange)
 
         return ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color.black.opacity(0.35))
                 .frame(width: 22, height: 5)
             RoundedRectangle(cornerRadius: 2)
-                .fill(Color.orange)
+                .fill(color)
                 .frame(width: 22 * clamped, height: 5)
         }
         .overlay {
@@ -238,17 +246,77 @@ struct TacticalMapView: View {
         }
     }
 
-    private func casualtyMarker(_ unit: MosulUnit) -> some View {
+    private func casualtyMarker(_ unit: MosulUnit, markerID: String) -> some View {
         Text("\(unit.casualtyCount)")
             .font(.system(size: 9, weight: .bold, design: .rounded))
             .foregroundStyle(.white)
             .frame(width: 18, height: 18)
-            .background(Color.red, in: Circle())
+            .background(markerColor(markerID, fallback: Color.red), in: Circle())
             .overlay {
                 Circle()
                     .stroke(Color.white.opacity(0.65), lineWidth: 1)
             }
             .accessibilityLabel("\(unit.casualtyCount) casualties")
+    }
+
+    private func markerColor(_ markerID: String, fallback: Color) -> Color {
+        switch markerID {
+        case "move_route", "move_target", "order_hold":
+            return Color(red: 0.75, green: 0.70, blue: 0.38)
+        case "fire_order", "order_suppress", "casualty":
+            return Color(red: 0.78, green: 0.24, blue: 0.20)
+        case "overwatch", "order_overwatch":
+            return Color(red: 0.32, green: 0.55, blue: 0.68)
+        case "suppression", "order_withdraw", "hidden_contact":
+            return Color(red: 0.78, green: 0.48, blue: 0.20)
+        case "objective":
+            return Color(red: 0.55, green: 0.50, blue: 0.28)
+        case "breach_search", "order_breach_search":
+            return Color(red: 0.45, green: 0.58, blue: 0.42)
+        case "rooftop_access":
+            return Color(red: 0.38, green: 0.58, blue: 0.67)
+        case "civilian_risk":
+            return Color(red: 0.86, green: 0.68, blue: 0.28)
+        case "order_investigate":
+            return Color(red: 0.30, green: 0.66, blue: 0.70)
+        default:
+            return fallback
+        }
+    }
+
+    private func markerSymbol(_ markerID: String, fallback: String) -> String {
+        switch markerID {
+        case "selection_ring":
+            return "scope"
+        case "move_target", "move_route":
+            return "mappin"
+        case "fire_order":
+            return "flame.fill"
+        case "overwatch", "order_overwatch":
+            return "eye.fill"
+        case "suppression", "order_suppress":
+            return "burst.fill"
+        case "casualty":
+            return "cross.case.fill"
+        case "objective":
+            return "flag.fill"
+        case "hidden_contact":
+            return "questionmark"
+        case "breach_search", "order_breach_search":
+            return "hammer.fill"
+        case "rooftop_access":
+            return "stairs"
+        case "civilian_risk":
+            return "person.2.fill"
+        case "order_hold":
+            return "hand.raised.fill"
+        case "order_investigate":
+            return "magnifyingglass"
+        case "order_withdraw":
+            return "arrow.uturn.left"
+        default:
+            return fallback
+        }
     }
 
     private func sideColor(_ side: Int32) -> Color {

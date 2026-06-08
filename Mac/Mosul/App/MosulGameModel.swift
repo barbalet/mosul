@@ -13,6 +13,13 @@ private func bridgeString<T>(_ value: T) -> String {
 struct MosulUnit: Identifiable {
     let id: UInt32
     let name: String
+    let spriteID: String
+    let selectionMarkerID: String
+    let orderMarkerID: String
+    let routeMarkerID: String
+    let targetMarkerID: String
+    let suppressionMarkerID: String
+    let casualtyMarkerID: String
     let side: Int32
     let order: Int32
     let status: Int32
@@ -34,6 +41,7 @@ struct MosulObjective: Identifiable {
     let id: UInt32
     let name: String
     let label: String
+    let markerID: String
     let controllingSide: Int32
     let x: CGFloat
     let y: CGFloat
@@ -44,6 +52,8 @@ struct MosulObjective: Identifiable {
 struct MosulCivilian: Identifiable {
     let id: UInt32
     let name: String
+    let spriteID: String
+    let markerID: String
     let x: CGFloat
     let y: CGFloat
     let state: Int32
@@ -54,6 +64,7 @@ struct MosulCivilian: Identifiable {
 struct MosulContact: Identifiable {
     let id: UInt32
     let tick: UInt32
+    let markerID: String
     let kind: Int32
     let side: Int32
     let x: CGFloat
@@ -222,6 +233,13 @@ final class MosulGameModel: ObservableObject {
             MosulUnit(
                 id: item.id,
                 name: bridgeString(item.name),
+                spriteID: bridgeString(item.sprite_id),
+                selectionMarkerID: bridgeString(item.selection_marker_id),
+                orderMarkerID: bridgeString(item.order_marker_id),
+                routeMarkerID: bridgeString(item.route_marker_id),
+                targetMarkerID: bridgeString(item.target_marker_id),
+                suppressionMarkerID: bridgeString(item.suppression_marker_id),
+                casualtyMarkerID: bridgeString(item.casualty_marker_id),
                 side: item.side,
                 order: item.order,
                 status: item.status,
@@ -252,6 +270,7 @@ final class MosulGameModel: ObservableObject {
                 id: item.id,
                 name: bridgeString(item.name),
                 label: bridgeString(item.label),
+                markerID: bridgeString(item.marker_id),
                 controllingSide: item.controlling_side,
                 x: CGFloat(item.x_m),
                 y: CGFloat(item.y_m),
@@ -271,6 +290,8 @@ final class MosulGameModel: ObservableObject {
             MosulCivilian(
                 id: item.id,
                 name: bridgeString(item.name),
+                spriteID: bridgeString(item.sprite_id),
+                markerID: bridgeString(item.marker_id),
                 x: CGFloat(item.x_m),
                 y: CGFloat(item.y_m),
                 state: item.state,
@@ -290,6 +311,7 @@ final class MosulGameModel: ObservableObject {
             MosulContact(
                 id: item.id,
                 tick: item.tick,
+                markerID: bridgeString(item.marker_id),
                 kind: item.kind,
                 side: item.side,
                 x: CGFloat(item.x_m),

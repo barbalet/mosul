@@ -16,12 +16,15 @@ struct MosulEngine {
     char project_root[MOSUL_BRIDGE_PATH_CAPACITY];
     char scenario_path[MOSUL_BRIDGE_PATH_CAPACITY];
     char map_manifest_path[MOSUL_BRIDGE_PATH_CAPACITY];
+    char marker_manifest_path[MOSUL_BRIDGE_PATH_CAPACITY];
     char map_overview_path[MOSUL_BRIDGE_PATH_CAPACITY];
     char last_error[MOSUL_BRIDGE_TEXT_CAPACITY];
     mk_scenario_definition_t scenario;
     mk_game_t game;
     mk_asset_map_manifest_t map_manifest;
+    mk_asset_marker_manifest_t marker_manifest;
     bool map_manifest_loaded;
+    bool marker_manifest_loaded;
 };
 
 static void mosul_bridge_copy_text(char *destination, size_t capacity, const char *source) {
@@ -117,6 +120,32 @@ static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
     return true;
 }
 
+static bool mosul_bridge_load_marker_manifest(MosulEngine *engine) {
+    mk_result_t result;
+
+    if (engine == NULL) {
+        return false;
+    }
+
+    if (!mosul_bridge_join_path(
+            engine->marker_manifest_path,
+            sizeof(engine->marker_manifest_path),
+            engine->project_root,
+            "assets/mosul/manifests/mosul_2003_markers.markermanifest")) {
+        mosul_bridge_set_error(engine, "Could not build marker manifest path.");
+        return false;
+    }
+
+    result = mk_asset_load_marker_manifest(engine->marker_manifest_path, &engine->marker_manifest);
+    if (result != MK_OK) {
+        mosul_bridge_set_error(engine, "Could not load MOSUL 2003 tactical marker manifest.");
+        return false;
+    }
+
+    engine->marker_manifest_loaded = true;
+    return true;
+}
+
 static bool mosul_bridge_load_game(MosulEngine *engine, uint32_t battle_index) {
     mk_result_t result;
     uint32_t normalized_battle_index;
@@ -168,7 +197,9 @@ MosulEngine *MosulEngineCreate(const char *moderner_krieg_root) {
 
     mosul_bridge_copy_text(engine->project_root, sizeof(engine->project_root), moderner_krieg_root);
 
-    if (!mosul_bridge_load_map_manifest(engine) || !mosul_bridge_load_game(engine, 1U)) {
+    if (!mosul_bridge_load_map_manifest(engine)
+        || !mosul_bridge_load_marker_manifest(engine)
+        || !mosul_bridge_load_game(engine, 1U)) {
         return engine;
     }
 
@@ -330,6 +361,182 @@ static size_t mosul_bridge_unit_casualties(const mk_unit_t *unit) {
     return count;
 }
 
+static const mk_soldier_t *mosul_bridge_representative_soldier(const mk_unit_t *unit) {
+    size_t index;
+    const mk_soldier_t *fallback = NULL;
+
+    if (unit == NULL) {
+        return NULL;
+    }
+
+    for (index = 0; index < unit->soldier_count; ++index) {
+        const mk_soldier_t *soldier = &unit->soldiers[index];
+
+        if (fallback == NULL) {
+            fallback = soldier;
+        }
+        if (!soldier->casualty) {
+            return soldier;
+        }
+    }
+
+    return fallback;
+}
+
+static const char *mosul_bridge_unit_sprite_id(const mk_unit_t *unit) {
+    const mk_soldier_t *soldier = mosul_bridge_representative_soldier(unit);
+
+    if (unit == NULL) {
+        return "";
+    }
+
+    switch (unit->side) {
+    case MK_SIDE_PLAYER:
+        if (soldier != NULL) {
+            switch (soldier->role) {
+            case MK_ROLE_LEADER:
+                return "us_army_squad_leader";
+            case MK_ROLE_MACHINE_GUNNER:
+                return "us_army_automatic_rifleman";
+            case MK_ROLE_MARKSMAN:
+                return "us_army_marksman";
+            case MK_ROLE_ENGINEER:
+                return "us_army_engineer_breacher";
+            case MK_ROLE_MEDIC:
+                return "us_army_medic";
+            default:
+                break;
+            }
+        }
+        return "us_army_rifleman";
+    case MK_SIDE_OPFOR:
+        if (soldier != NULL) {
+            switch (soldier->role) {
+            case MK_ROLE_RPG:
+                return "rpg_gunner";
+            case MK_ROLE_MACHINE_GUNNER:
+                return "machine_gunner";
+            case MK_ROLE_MARKSMAN:
+                return "sniper_marksman";
+            default:
+                break;
+            }
+        }
+        if (strcmp(unit->template_id, "rooftop_watcher") == 0) {
+            return "sniper_marksman";
+        }
+        if (strcmp(unit->template_id, "market_looter") == 0) {
+            return "armed_looter";
+        }
+        return "insurgent_cell_rifleman";
+    case MK_SIDE_CIVILIAN:
+        return "adult_woman";
+    default:
+        return "us_army_rifleman";
+    }
+}
+
+static const char *mosul_bridge_civilian_sprite_id(const mk_civilian_t *civilian) {
+    if (civilian == NULL) {
+        return "";
+    }
+    if (strstr(civilian->name, "Child") != NULL) {
+        return "young_boy";
+    }
+    if (strstr(civilian->name, "Elder") != NULL) {
+        return "old_man";
+    }
+    return "adult_woman";
+}
+
+static const char *mosul_bridge_order_marker_id(mk_order_t order) {
+    switch (order) {
+    case MK_ORDER_HOLD:
+        return "order_hold";
+    case MK_ORDER_MOVE:
+    case MK_ORDER_ASSAULT_MOVE:
+        return "move_target";
+    case MK_ORDER_FIRE:
+        return "fire_order";
+    case MK_ORDER_SUPPRESS:
+        return "order_suppress";
+    case MK_ORDER_OVERWATCH:
+        return "order_overwatch";
+    case MK_ORDER_BREACH:
+        return "order_breach_search";
+    case MK_ORDER_WITHDRAW:
+        return "order_withdraw";
+    case MK_ORDER_INVESTIGATE:
+        return "order_investigate";
+    case MK_ORDER_RALLY:
+        return "order_hold";
+    default:
+        return "";
+    }
+}
+
+static const char *mosul_bridge_target_marker_id(const mk_unit_t *unit) {
+    if (unit == NULL || !unit->has_move_target) {
+        return "";
+    }
+    if (unit->order == MK_ORDER_INVESTIGATE
+        || unit->order == MK_ORDER_BREACH
+        || unit->order == MK_ORDER_WITHDRAW
+        || unit->order == MK_ORDER_SUPPRESS) {
+        return mosul_bridge_order_marker_id(unit->order);
+    }
+    return "move_target";
+}
+
+static const char *mosul_bridge_civilian_marker_id(const mk_civilian_t *civilian) {
+    if (civilian == NULL) {
+        return "";
+    }
+    if (civilian->state == MK_CIVILIAN_WOUNDED || civilian->state == MK_CIVILIAN_DEAD) {
+        return "casualty";
+    }
+    return civilian->risk > 0 ? "civilian_risk" : "";
+}
+
+static const char *mosul_bridge_contact_marker_id(const mk_contact_report_t *contact) {
+    if (contact == NULL) {
+        return "";
+    }
+    switch (contact->kind) {
+    case MK_CONTACT_REPORT_FIRE:
+        return contact->visible ? "fire_order" : "hidden_contact";
+    case MK_CONTACT_REPORT_CIVILIAN_RISK:
+        return "civilian_risk";
+    case MK_CONTACT_REPORT_SEARCH:
+    case MK_CONTACT_REPORT_BREACH:
+        return "breach_search";
+    case MK_CONTACT_REPORT_SUSPECTED_DANGER:
+    case MK_CONTACT_REPORT_FALSE_CONTACT:
+    case MK_CONTACT_REPORT_REVEAL:
+        return "hidden_contact";
+    default:
+        return contact->visible ? "" : "hidden_contact";
+    }
+}
+
+static void mosul_bridge_copy_marker_id(
+    const MosulEngine *engine,
+    char *destination,
+    size_t capacity,
+    const char *marker_id
+) {
+    if (marker_id == NULL
+        || marker_id[0] == '\0'
+        || engine == NULL
+        || !engine->marker_manifest_loaded
+        || mk_asset_find_marker(&engine->marker_manifest, marker_id) == NULL) {
+        mosul_bridge_copy_text(destination, capacity, "");
+        return;
+    }
+
+    mosul_bridge_copy_text(destination, capacity, marker_id);
+}
+
 size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_units, size_t capacity) {
     size_t index;
     size_t count;
@@ -346,6 +553,43 @@ size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_uni
         memset(summary, 0, sizeof(*summary));
         summary->id = unit->id;
         mosul_bridge_copy_text(summary->name, sizeof(summary->name), unit->name);
+        mosul_bridge_copy_text(summary->sprite_id, sizeof(summary->sprite_id), mosul_bridge_unit_sprite_id(unit));
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->selection_marker_id,
+            sizeof(summary->selection_marker_id),
+            unit->id == engine->game.selected_unit_id ? "selection_ring" : ""
+        );
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->order_marker_id,
+            sizeof(summary->order_marker_id),
+            mosul_bridge_order_marker_id(unit->order)
+        );
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->route_marker_id,
+            sizeof(summary->route_marker_id),
+            unit->has_move_target ? "move_route" : ""
+        );
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->target_marker_id,
+            sizeof(summary->target_marker_id),
+            mosul_bridge_target_marker_id(unit)
+        );
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->suppression_marker_id,
+            sizeof(summary->suppression_marker_id),
+            unit->suppression > 0 ? "suppression" : ""
+        );
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->casualty_marker_id,
+            sizeof(summary->casualty_marker_id),
+            mosul_bridge_unit_casualties(unit) > 0 ? "casualty" : ""
+        );
         summary->side = (int)unit->side;
         summary->order = (int)unit->order;
         summary->status = (int)unit->status;
@@ -383,6 +627,7 @@ size_t MosulEngineCopyObjectives(const MosulEngine *engine, MosulObjectiveSummar
         summary->id = objective->id;
         mosul_bridge_copy_text(summary->name, sizeof(summary->name), objective->name);
         mosul_bridge_copy_text(summary->label, sizeof(summary->label), objective->label);
+        mosul_bridge_copy_marker_id(engine, summary->marker_id, sizeof(summary->marker_id), "objective");
         summary->kind = (int)objective->kind;
         summary->controlling_side = (int)objective->controlling_side;
         summary->x_m = objective->position_m.x;
@@ -410,6 +655,13 @@ size_t MosulEngineCopyCivilians(const MosulEngine *engine, MosulCivilianSummary 
         memset(summary, 0, sizeof(*summary));
         summary->id = civilian->id;
         mosul_bridge_copy_text(summary->name, sizeof(summary->name), civilian->name);
+        mosul_bridge_copy_text(summary->sprite_id, sizeof(summary->sprite_id), mosul_bridge_civilian_sprite_id(civilian));
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->marker_id,
+            sizeof(summary->marker_id),
+            mosul_bridge_civilian_marker_id(civilian)
+        );
         summary->x_m = civilian->position_m.x;
         summary->y_m = civilian->position_m.y;
         summary->state = (int)civilian->state;
@@ -437,6 +689,12 @@ size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *o
         memset(summary, 0, sizeof(*summary));
         summary->id = contact->id;
         summary->tick = contact->tick;
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->marker_id,
+            sizeof(summary->marker_id),
+            mosul_bridge_contact_marker_id(contact)
+        );
         summary->kind = (int)contact->kind;
         summary->side = (int)contact->side;
         summary->x_m = contact->position_m.x;

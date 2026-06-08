@@ -8,7 +8,8 @@ The project is ready to move from art/import work into playable-demo development
 
 - Completed: Step 1 - Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
 - Completed: Step 2 - Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
-- Active: Step 3 - Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
+- Completed: Step 3 - Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
+- Active: Step 4 - Add player-facing after-action results from the existing C score/outcome data.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -26,6 +27,7 @@ The project is ready to move from art/import work into playable-demo development
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, and hidden/contact markers over the runtime sprites.
+- The C bridge now exposes the sprite and marker manifest ids the Mac map needs, including unit/civilian sprite ids and validated tactical marker ids from the MOSUL marker manifest.
 
 ## Playable Demo Target
 
@@ -99,8 +101,8 @@ Do not pause engine development for a large new art pass. Add these assets only 
 
 1. Done 2026-06-08: Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
 2. Done 2026-06-08: Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
-3. Active: Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
-4. Add player-facing after-action results from the existing C score/outcome data.
+3. Done 2026-06-08: Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
+4. Active: Add player-facing after-action results from the existing C score/outcome data.
 5. Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
 6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
 7. Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.

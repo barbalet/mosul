@@ -22,6 +22,13 @@ typedef struct MosulEngine MosulEngine;
 typedef struct {
     uint32_t id;
     char name[MOSUL_BRIDGE_NAME_CAPACITY];
+    char sprite_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char selection_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char order_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char route_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char target_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char suppression_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char casualty_marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int side;
     int order;
     int status;
@@ -43,6 +50,7 @@ typedef struct {
     uint32_t id;
     char name[MOSUL_BRIDGE_NAME_CAPACITY];
     char label[MOSUL_BRIDGE_NAME_CAPACITY];
+    char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int kind;
     int controlling_side;
     float x_m;
@@ -54,6 +62,8 @@ typedef struct {
 typedef struct {
     uint32_t id;
     char name[MOSUL_BRIDGE_NAME_CAPACITY];
+    char sprite_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     float x_m;
     float y_m;
     int state;
@@ -65,6 +75,7 @@ typedef struct {
 typedef struct {
     uint32_t id;
     uint32_t tick;
+    char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int kind;
     int side;
     float x_m;
