@@ -75,6 +75,27 @@ struct MosulContact: Identifiable {
     let resolved: Bool
 }
 
+struct MosulInteraction: Identifiable {
+    let numericID: UInt32
+    let id: String
+    let label: String
+    let markerID: String
+    let state: String
+    let kind: Int32
+    let source: Int32
+    let x: CGFloat
+    let y: CGFloat
+    let radius: CGFloat
+    let distance: CGFloat
+    let priority: Int32
+    let searched: Bool
+    let breached: Bool
+    let open: Bool
+    let vertical: Bool
+    let actionable: Bool
+    let routeAvailable: Bool
+}
+
 struct MosulScore {
     var total: Int32 = 0
     var objectivePoints: Int32 = 0
@@ -119,6 +140,7 @@ final class MosulGameModel: ObservableObject {
     @Published var objectives: [MosulObjective] = []
     @Published var civilians: [MosulCivilian] = []
     @Published var contacts: [MosulContact] = []
+    @Published var interactions: [MosulInteraction] = []
     @Published var score = MosulScore()
     @Published var afterAction = MosulAfterAction()
     @Published var mode: MosulMapMode = .select
@@ -148,6 +170,23 @@ final class MosulGameModel: ObservableObject {
 
     var selectedUnit: MosulUnit? {
         units.first(where: { $0.selected })
+    }
+
+    var selectedInteractionTasks: [MosulInteraction] {
+        guard selectedUnit != nil else { return [] }
+
+        return interactions.sorted { first, second in
+            if first.actionable != second.actionable {
+                return first.actionable
+            }
+            if first.searched != second.searched {
+                return !first.searched
+            }
+            if first.distance != second.distance {
+                return first.distance < second.distance
+            }
+            return first.priority > second.priority
+        }
     }
 
     func reset(battleIndex: UInt32 = 1) {
@@ -186,6 +225,30 @@ final class MosulGameModel: ObservableObject {
         issueOrder(6)
     }
 
+    func issueSearch(_ interaction: MosulInteraction) {
+        guard let engine else { return }
+        _ = interaction.id.withCString { interactionID in
+            MosulEngineIssueSelectedSearch(engine, interactionID)
+        }
+        refresh()
+    }
+
+    func issueBreach(_ interaction: MosulInteraction) {
+        guard let engine else { return }
+        _ = interaction.id.withCString { interactionID in
+            MosulEngineIssueSelectedBreach(engine, interactionID)
+        }
+        refresh()
+    }
+
+    func routeToInteraction(_ interaction: MosulInteraction) {
+        guard let engine else { return }
+        _ = interaction.id.withCString { interactionID in
+            MosulEngineIssueSelectedRouteToInteraction(engine, interactionID)
+        }
+        refresh()
+    }
+
     func handleMapTap(x: CGFloat, y: CGFloat) {
         guard let engine else { return }
 
@@ -222,6 +285,7 @@ final class MosulGameModel: ObservableObject {
         refreshObjectives(engine)
         refreshCivilians(engine)
         refreshContacts(engine)
+        refreshInteractions(engine)
         refreshScore(engine)
         refreshAfterAction(engine)
     }
@@ -329,6 +393,36 @@ final class MosulGameModel: ObservableObject {
                 confidence: item.confidence,
                 visible: item.visible,
                 resolved: item.resolved
+            )
+        }
+    }
+
+    private func refreshInteractions(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulInteractionSummary(), count: 128)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyInteractions(engine, buffer.baseAddress, buffer.count)
+        }
+
+        interactions = raw.prefix(Int(count)).map { item in
+            MosulInteraction(
+                numericID: item.numeric_id,
+                id: bridgeString(item.interaction_id),
+                label: bridgeString(item.label),
+                markerID: bridgeString(item.marker_id),
+                state: bridgeString(item.state),
+                kind: item.kind,
+                source: item.source,
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                radius: CGFloat(item.radius_m),
+                distance: CGFloat(item.distance_m),
+                priority: item.priority,
+                searched: item.searched,
+                breached: item.breached,
+                open: item.open,
+                vertical: item.vertical,
+                actionable: item.actionable,
+                routeAvailable: item.route_available
             )
         }
     }

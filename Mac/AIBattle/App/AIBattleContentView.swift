@@ -283,11 +283,14 @@ struct AIBattleContentView: View {
         let civilians = model.civilians
             .map { "\($0.id):\($0.state):\(Int($0.x)):\(Int($0.y)):\($0.risk):\($0.stress)" }
             .joined(separator: ";")
+        let interactions = model.interactions
+            .map { "\($0.id):\($0.state):\($0.searched):\($0.breached):\($0.open)" }
+            .joined(separator: ";")
         let units = model.units
             .map { "\($0.id):\($0.order):\($0.status):\(Int($0.x)):\(Int($0.y)):\(Int($0.targetX)):\(Int($0.targetY)):\($0.hasTarget):\($0.revealed):\($0.suppression):\($0.casualtyCount)" }
             .joined(separator: ";")
 
-        return "\(objectives)|\(contacts)|\(civilians)|\(units)"
+        return "\(objectives)|\(contacts)|\(civilians)|\(interactions)|\(units)"
     }
 
     private func resultText(for reason: AIBattleCompletionReason) -> String {

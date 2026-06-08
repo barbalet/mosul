@@ -65,6 +65,11 @@ struct TacticalMapView: View {
                 contactMarker(contact, at: point)
             }
 
+            ForEach(model.interactions) { interaction in
+                let point = screenPoint(x: interaction.x, y: interaction.y, layout: layout)
+                interactionMarker(interaction, at: point, layout: layout)
+            }
+
             ForEach(model.units) { unit in
                 let point = screenPoint(x: unit.x, y: unit.y, layout: layout)
 
@@ -171,6 +176,46 @@ struct TacticalMapView: View {
         }
         .opacity(contact.resolved ? 0.72 : 1.0)
         .position(point)
+    }
+
+    private func interactionMarker(_ interaction: MosulInteraction, at point: CGPoint, layout: MapLayout) -> some View {
+        let color = markerColor(interaction.markerID, fallback: .teal)
+        let symbol = markerSymbol(interaction.markerID, fallback: interactionSymbol(interaction))
+        let resolved = interaction.searched || interaction.breached || (interaction.kind == 1 && interaction.open)
+        let size = max(18, min(34, interaction.radius * layout.scale * 2.0))
+
+        return ZStack {
+            if interaction.actionable {
+                Circle()
+                    .stroke(color.opacity(0.76), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
+                    .frame(width: size + 14, height: size + 14)
+            }
+
+            if interaction.markerID == "rooftop_access" {
+                Triangle()
+                    .fill(color.opacity(resolved ? 0.12 : 0.20))
+                    .frame(width: size + 2, height: size + 2)
+                Triangle()
+                    .stroke(color.opacity(resolved ? 0.55 : 0.95), lineWidth: 1.8)
+                    .frame(width: size + 2, height: size + 2)
+            } else {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(color.opacity(resolved ? 0.10 : 0.18))
+                    .frame(width: size, height: size)
+                    .rotationEffect(.degrees(interaction.markerID == "hidden_contact" ? 45 : 0))
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(color.opacity(resolved ? 0.55 : 0.95), style: StrokeStyle(lineWidth: 1.8, dash: resolved ? [4, 3] : []))
+                    .frame(width: size, height: size)
+                    .rotationEffect(.degrees(interaction.markerID == "hidden_contact" ? 45 : 0))
+            }
+
+            Image(systemName: resolved ? "checkmark" : symbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(color)
+        }
+        .opacity(resolved ? 0.72 : 1.0)
+        .position(point)
+        .accessibilityLabel("\(interaction.label), \(interaction.state)")
     }
 
     private func routeDestinationMarker(_ unit: MosulUnit, at point: CGPoint) -> some View {
@@ -370,6 +415,23 @@ struct TacticalMapView: View {
         }
     }
 
+    private func interactionSymbol(_ interaction: MosulInteraction) -> String {
+        switch interaction.kind {
+        case 1:
+            return "hammer.fill"
+        case 3:
+            return "shippingbox.fill"
+        case 4:
+            return "stairs"
+        case 5:
+            return "exclamationmark.triangle.fill"
+        case 6:
+            return "person.2.fill"
+        default:
+            return "magnifyingglass"
+        }
+    }
+
     private func orderSymbol(_ order: Int32) -> String {
         switch order {
         case 1:
@@ -481,4 +543,16 @@ private struct MapLayout {
     let rect: CGRect
     let size: CGSize
     let scale: CGFloat
+}
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
 }

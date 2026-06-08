@@ -16,6 +16,7 @@ extern "C" {
 #define MOSUL_BRIDGE_MAX_OBJECTIVES 16
 #define MOSUL_BRIDGE_MAX_CIVILIANS 128
 #define MOSUL_BRIDGE_MAX_CONTACTS 64
+#define MOSUL_BRIDGE_MAX_INTERACTIONS 128
 
 typedef struct MosulEngine MosulEngine;
 
@@ -89,6 +90,27 @@ typedef struct {
 } MosulContactSummary;
 
 typedef struct {
+    uint32_t numeric_id;
+    char interaction_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char label[MOSUL_BRIDGE_NAME_CAPACITY];
+    char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char state[MOSUL_BRIDGE_NAME_CAPACITY];
+    int kind;
+    int source;
+    float x_m;
+    float y_m;
+    float radius_m;
+    float distance_m;
+    int priority;
+    bool searched;
+    bool breached;
+    bool open;
+    bool vertical;
+    bool actionable;
+    bool route_available;
+} MosulInteractionSummary;
+
+typedef struct {
     int objective_points;
     int interaction_points;
     int civilian_risk_penalty;
@@ -134,11 +156,15 @@ bool MosulEngineClearSelection(MosulEngine *engine);
 bool MosulEngineIssueSelectedOrder(MosulEngine *engine, int order);
 bool MosulEngineIssueSelectedMove(MosulEngine *engine, float x_m, float y_m);
 bool MosulEngineIssueSelectedInvestigate(MosulEngine *engine, float x_m, float y_m);
+bool MosulEngineIssueSelectedSearch(MosulEngine *engine, const char *interaction_id);
+bool MosulEngineIssueSelectedBreach(MosulEngine *engine, const char *interaction_id);
+bool MosulEngineIssueSelectedRouteToInteraction(MosulEngine *engine, const char *interaction_id);
 
 size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_units, size_t capacity);
 size_t MosulEngineCopyObjectives(const MosulEngine *engine, MosulObjectiveSummary *out_objectives, size_t capacity);
 size_t MosulEngineCopyCivilians(const MosulEngine *engine, MosulCivilianSummary *out_civilians, size_t capacity);
 size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *out_contacts, size_t capacity);
+size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSummary *out_interactions, size_t capacity);
 bool MosulEngineCopyScore(const MosulEngine *engine, MosulScoreSummary *out_score);
 bool MosulEngineCopyAfterAction(const MosulEngine *engine, MosulAfterActionSummary *out_report);
 

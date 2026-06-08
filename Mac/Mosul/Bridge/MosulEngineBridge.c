@@ -11,6 +11,14 @@
 #include <string.h>
 
 #define MOSUL_BRIDGE_AI_BATTLE_SEED_STEP UINT64_C(0x9E3779B97F4A7C15)
+#define MOSUL_BRIDGE_INTERACTION_SOURCE_PORTAL 1
+#define MOSUL_BRIDGE_INTERACTION_SOURCE_SEMANTIC_ZONE 2
+#define MOSUL_BRIDGE_INTERACTION_KIND_BREACH 1
+#define MOSUL_BRIDGE_INTERACTION_KIND_SEARCH 2
+#define MOSUL_BRIDGE_INTERACTION_KIND_CACHE 3
+#define MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP 4
+#define MOSUL_BRIDGE_INTERACTION_KIND_DANGER 5
+#define MOSUL_BRIDGE_INTERACTION_KIND_CIVILIAN_SHELTER 6
 
 struct MosulEngine {
     char project_root[MOSUL_BRIDGE_PATH_CAPACITY];
@@ -67,6 +75,14 @@ static bool mosul_bridge_file_exists(const char *path) {
 
     fclose(file);
     return true;
+}
+
+static mk_vec2_t mosul_bridge_rect_center(mk_rect_t rect) {
+    mk_vec2_t center;
+
+    center.x = rect.x + rect.width * 0.5f;
+    center.y = rect.y + rect.height * 0.5f;
+    return center;
 }
 
 static void mosul_bridge_set_error(MosulEngine *engine, const char *message) {
@@ -344,6 +360,95 @@ bool MosulEngineIssueSelectedInvestigate(MosulEngine *engine, float x_m, float y
     return mk_game_issue_selected_investigate_order(&engine->game, position) == MK_OK;
 }
 
+bool MosulEngineIssueSelectedSearch(MosulEngine *engine, const char *interaction_id) {
+    mk_search_result_t search_result;
+
+    if (engine == NULL || engine->game.selected_unit_id == 0U || interaction_id == NULL || interaction_id[0] == '\0') {
+        return false;
+    }
+
+    return mk_game_search_semantic_zone(
+        &engine->game,
+        engine->game.selected_unit_id,
+        interaction_id,
+        &search_result
+    ) == MK_OK;
+}
+
+bool MosulEngineIssueSelectedBreach(MosulEngine *engine, const char *interaction_id) {
+    mk_breach_result_t breach_result;
+
+    if (engine == NULL || engine->game.selected_unit_id == 0U || interaction_id == NULL || interaction_id[0] == '\0') {
+        return false;
+    }
+
+    return mk_game_breach_portal(
+        &engine->game,
+        engine->game.selected_unit_id,
+        interaction_id,
+        &breach_result
+    ) == MK_OK;
+}
+
+bool MosulEngineIssueSelectedRouteToInteraction(MosulEngine *engine, const char *interaction_id) {
+    const mk_unit_t *selected_unit;
+    const mk_gameplay_topology_portal_t *portal;
+    const mk_gameplay_topology_node_t *from_node;
+    const mk_gameplay_topology_node_t *to_node;
+    const mk_gameplay_topology_node_t *target_node = NULL;
+    const mk_gameplay_semantic_zone_t *zone;
+    mk_vec2_t target_position;
+    const char *target_level_id;
+
+    if (engine == NULL || engine->game.selected_unit_id == 0U || interaction_id == NULL || interaction_id[0] == '\0') {
+        return false;
+    }
+
+    selected_unit = mk_game_find_unit_const(&engine->game, engine->game.selected_unit_id);
+    if (selected_unit == NULL) {
+        return false;
+    }
+
+    portal = mk_gameplay_area_find_topology_portal(&engine->game.gameplay_area, interaction_id);
+    if (portal != NULL) {
+        from_node = mk_gameplay_area_find_topology_node(&engine->game.gameplay_area, portal->from_node_id);
+        to_node = mk_gameplay_area_find_topology_node(&engine->game.gameplay_area, portal->to_node_id);
+
+        if (from_node == NULL || to_node == NULL) {
+            return false;
+        }
+
+        if (strcmp(selected_unit->topology_node_id, to_node->id) == 0) {
+            target_node = from_node;
+        } else {
+            target_node = to_node;
+        }
+
+        target_position = portal->vertical
+            ? mosul_bridge_rect_center(target_node->bounds_m)
+            : mosul_bridge_rect_center(portal->bounds_m);
+        target_level_id = portal->vertical ? target_node->level_id : portal->level_id;
+        return mk_game_issue_move_order_to_level(
+            &engine->game,
+            selected_unit->id,
+            target_level_id,
+            target_position
+        ) == MK_OK;
+    }
+
+    zone = mk_gameplay_area_find_semantic_zone(&engine->game.gameplay_area, interaction_id);
+    if (zone == NULL) {
+        return false;
+    }
+
+    return mk_game_issue_move_order_to_level(
+        &engine->game,
+        selected_unit->id,
+        zone->level_id,
+        mosul_bridge_rect_center(zone->bounds_m)
+    ) == MK_OK;
+}
+
 static size_t mosul_bridge_unit_casualties(const mk_unit_t *unit) {
     size_t index;
     size_t count = 0;
@@ -517,6 +622,150 @@ static const char *mosul_bridge_contact_marker_id(const mk_contact_report_t *con
     default:
         return contact->visible ? "" : "hidden_contact";
     }
+}
+
+static bool mosul_bridge_text_equals_any3(const char *text, const char *first, const char *second, const char *third) {
+    if (text == NULL) {
+        return false;
+    }
+
+    return (first != NULL && strcmp(text, first) == 0)
+        || (second != NULL && strcmp(text, second) == 0)
+        || (third != NULL && strcmp(text, third) == 0);
+}
+
+static bool mosul_bridge_portal_is_open_for_route(const mk_gameplay_topology_portal_t *portal) {
+    if (portal == NULL) {
+        return false;
+    }
+
+    return strcmp(portal->state, "open") == 0
+        || strcmp(portal->state, "breached") == 0
+        || strcmp(portal->state, "searched") == 0
+        || strcmp(portal->state, "compromised") == 0;
+}
+
+static bool mosul_bridge_portal_is_interaction(const mk_gameplay_topology_portal_t *portal) {
+    if (portal == NULL) {
+        return false;
+    }
+
+    return portal->vertical
+        || strcmp(portal->kind, "breach_hole") == 0
+        || mosul_bridge_text_equals_any3(portal->state, "closed", "locked", "breached")
+        || mosul_bridge_text_equals_any3(portal->state, "blocked", "unsafe", NULL);
+}
+
+static int mosul_bridge_portal_interaction_kind(const mk_gameplay_topology_portal_t *portal) {
+    if (portal != NULL && portal->vertical) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP;
+    }
+
+    return MOSUL_BRIDGE_INTERACTION_KIND_BREACH;
+}
+
+static const char *mosul_bridge_portal_interaction_label(const mk_gameplay_topology_portal_t *portal) {
+    if (portal == NULL) {
+        return "Access Point";
+    }
+
+    if (portal->vertical) {
+        return "Rooftop Access";
+    }
+
+    if (strcmp(portal->state, "closed") == 0 || strcmp(portal->state, "locked") == 0) {
+        return "Breach Point";
+    }
+
+    if (strcmp(portal->state, "blocked") == 0 || strcmp(portal->state, "unsafe") == 0) {
+        return "Blocked Access";
+    }
+
+    if (strcmp(portal->state, "breached") == 0 || strcmp(portal->kind, "breach_hole") == 0) {
+        return "Breached Access";
+    }
+
+    return "Access Point";
+}
+
+static const char *mosul_bridge_zone_interaction_label(const mk_gameplay_semantic_zone_t *zone) {
+    if (zone == NULL) {
+        return "Search";
+    }
+
+    if (strcmp(zone->kind, "cache") == 0) {
+        return "Cache Search";
+    }
+
+    if (strcmp(zone->kind, "danger_area") == 0) {
+        return "Danger Search";
+    }
+
+    if (strcmp(zone->kind, "civilian_shelter") == 0) {
+        return "Civilian Shelter";
+    }
+
+    if (strcmp(zone->kind, "overwatch_roof") == 0) {
+        return "Rooftop Overwatch";
+    }
+
+    return "Search Area";
+}
+
+static int mosul_bridge_zone_interaction_kind(const mk_gameplay_semantic_zone_t *zone) {
+    if (zone == NULL) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_SEARCH;
+    }
+
+    if (strcmp(zone->kind, "cache") == 0) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_CACHE;
+    }
+
+    if (strcmp(zone->kind, "danger_area") == 0) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_DANGER;
+    }
+
+    if (strcmp(zone->kind, "civilian_shelter") == 0) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_CIVILIAN_SHELTER;
+    }
+
+    if (strcmp(zone->kind, "overwatch_roof") == 0) {
+        return MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP;
+    }
+
+    return MOSUL_BRIDGE_INTERACTION_KIND_SEARCH;
+}
+
+static bool mosul_bridge_zone_is_interaction(const mk_gameplay_semantic_zone_t *zone) {
+    if (zone == NULL) {
+        return false;
+    }
+
+    return strcmp(zone->kind, "cache") == 0
+        || strcmp(zone->kind, "search_objective") == 0
+        || strcmp(zone->kind, "danger_area") == 0
+        || strcmp(zone->kind, "civilian_shelter") == 0
+        || strcmp(zone->kind, "overwatch_roof") == 0;
+}
+
+static const char *mosul_bridge_interaction_marker_id(int interaction_kind) {
+    switch (interaction_kind) {
+    case MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP:
+        return "rooftop_access";
+    case MOSUL_BRIDGE_INTERACTION_KIND_DANGER:
+        return "hidden_contact";
+    case MOSUL_BRIDGE_INTERACTION_KIND_CIVILIAN_SHELTER:
+        return "civilian_risk";
+    case MOSUL_BRIDGE_INTERACTION_KIND_BREACH:
+    case MOSUL_BRIDGE_INTERACTION_KIND_SEARCH:
+    case MOSUL_BRIDGE_INTERACTION_KIND_CACHE:
+    default:
+        return "breach_search";
+    }
+}
+
+static bool mosul_bridge_unit_touches_node(const mk_unit_t *unit, const char *node_id) {
+    return unit != NULL && node_id != NULL && node_id[0] != '\0' && strcmp(unit->topology_node_id, node_id) == 0;
 }
 
 static void mosul_bridge_copy_marker_id(
@@ -705,6 +954,117 @@ size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *o
         summary->confidence = contact->confidence;
         summary->visible = contact->visible;
         summary->resolved = contact->resolved;
+    }
+
+    return count;
+}
+
+size_t MosulEngineCopyInteractions(const MosulEngine *engine, MosulInteractionSummary *out_interactions, size_t capacity) {
+    const mk_unit_t *selected_unit;
+    size_t index;
+    size_t count = 0;
+
+    if (engine == NULL || out_interactions == NULL || capacity == 0) {
+        return 0;
+    }
+
+    selected_unit = engine->game.selected_unit_id == 0U
+        ? NULL
+        : mk_game_find_unit_const(&engine->game, engine->game.selected_unit_id);
+
+    for (index = 0; index < engine->game.gameplay_area.topology_portal_count && count < capacity; ++index) {
+        const mk_gameplay_topology_portal_t *portal = &engine->game.gameplay_area.topology_portals[index];
+        MosulInteractionSummary *summary;
+        mk_vec2_t position;
+        int kind;
+        bool unit_at_portal;
+
+        if (!mosul_bridge_portal_is_interaction(portal)) {
+            continue;
+        }
+
+        position = mosul_bridge_rect_center(portal->bounds_m);
+        kind = mosul_bridge_portal_interaction_kind(portal);
+        unit_at_portal = selected_unit != NULL
+            && (mosul_bridge_unit_touches_node(selected_unit, portal->from_node_id)
+                || mosul_bridge_unit_touches_node(selected_unit, portal->to_node_id)
+                || mk_vec2_distance(selected_unit->position_m, position) <= 40.0f);
+
+        summary = &out_interactions[count];
+        memset(summary, 0, sizeof(*summary));
+        summary->numeric_id = (uint32_t)(1000U + (uint32_t)index + 1U);
+        mosul_bridge_copy_text(summary->interaction_id, sizeof(summary->interaction_id), portal->id);
+        mosul_bridge_copy_text(summary->label, sizeof(summary->label), mosul_bridge_portal_interaction_label(portal));
+        mosul_bridge_copy_text(summary->state, sizeof(summary->state), portal->state);
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->marker_id,
+            sizeof(summary->marker_id),
+            mosul_bridge_interaction_marker_id(kind)
+        );
+        summary->kind = kind;
+        summary->source = MOSUL_BRIDGE_INTERACTION_SOURCE_PORTAL;
+        summary->x_m = position.x;
+        summary->y_m = position.y;
+        summary->radius_m = portal->vertical ? 7.0f : 6.0f;
+        summary->distance_m = selected_unit == NULL ? 0.0f : mk_vec2_distance(selected_unit->position_m, position);
+        summary->priority = portal->vertical ? 5 : 4;
+        summary->searched = portal->searched;
+        summary->breached = portal->breached;
+        summary->open = mosul_bridge_portal_is_open_for_route(portal);
+        summary->vertical = portal->vertical;
+        summary->actionable = selected_unit != NULL
+            && unit_at_portal
+            && !portal->vertical
+            && !mosul_bridge_portal_is_open_for_route(portal);
+        summary->route_available = selected_unit != NULL
+            && (portal->vertical || !mosul_bridge_text_equals_any3(portal->state, "blocked", "unsafe", NULL));
+        count += 1;
+    }
+
+    for (index = 0; index < engine->game.gameplay_area.semantic_zone_count && count < capacity; ++index) {
+        const mk_gameplay_semantic_zone_t *zone = &engine->game.gameplay_area.semantic_zones[index];
+        MosulInteractionSummary *summary;
+        mk_vec2_t position;
+        int kind;
+        bool unit_at_zone;
+
+        if (!mosul_bridge_zone_is_interaction(zone)) {
+            continue;
+        }
+
+        position = mosul_bridge_rect_center(zone->bounds_m);
+        kind = mosul_bridge_zone_interaction_kind(zone);
+        unit_at_zone = selected_unit != NULL
+            && (mosul_bridge_unit_touches_node(selected_unit, zone->node_id)
+                || mk_vec2_distance(selected_unit->position_m, position) <= 48.0f);
+
+        summary = &out_interactions[count];
+        memset(summary, 0, sizeof(*summary));
+        summary->numeric_id = (uint32_t)(2000U + (uint32_t)index + 1U);
+        mosul_bridge_copy_text(summary->interaction_id, sizeof(summary->interaction_id), zone->id);
+        mosul_bridge_copy_text(summary->label, sizeof(summary->label), mosul_bridge_zone_interaction_label(zone));
+        mosul_bridge_copy_text(summary->state, sizeof(summary->state), zone->searched ? "searched" : "pending");
+        mosul_bridge_copy_marker_id(
+            engine,
+            summary->marker_id,
+            sizeof(summary->marker_id),
+            mosul_bridge_interaction_marker_id(kind)
+        );
+        summary->kind = kind;
+        summary->source = MOSUL_BRIDGE_INTERACTION_SOURCE_SEMANTIC_ZONE;
+        summary->x_m = position.x;
+        summary->y_m = position.y;
+        summary->radius_m = kind == MOSUL_BRIDGE_INTERACTION_KIND_CIVILIAN_SHELTER ? 10.0f : 8.0f;
+        summary->distance_m = selected_unit == NULL ? 0.0f : mk_vec2_distance(selected_unit->position_m, position);
+        summary->priority = zone->priority;
+        summary->searched = zone->searched;
+        summary->breached = false;
+        summary->open = true;
+        summary->vertical = kind == MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP;
+        summary->actionable = selected_unit != NULL && unit_at_zone && !zone->searched;
+        summary->route_available = selected_unit != NULL;
+        count += 1;
     }
 
     return count;

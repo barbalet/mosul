@@ -69,6 +69,7 @@ struct ContentView: View {
                 scorePanel
                 afterActionPanel
                 selectedPanel
+                interactionsPanel
                 unitsPanel
                 contactsPanel
                 briefingPanel
@@ -152,11 +153,32 @@ struct ContentView: View {
                 metricRow("Position", "\(Int(unit.x)), \(Int(unit.y)) m")
                 metricRow("Soldiers", "\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
                 metricRow("Suppression", "\(unit.suppression)")
+
+                let tasks = Array(model.selectedInteractionTasks.prefix(5))
+                if !tasks.isEmpty {
+                    Divider()
+                    ForEach(tasks) { interaction in
+                        interactionTaskRow(interaction)
+                    }
+                }
             } else {
                 Text("Select a unit on the map or in the list.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var interactionsPanel: some View {
+        let unresolved = model.interactions.filter { !$0.searched && !$0.breached }.count
+        let actionable = model.interactions.filter { $0.actionable }.count
+        let rooftop = model.interactions.filter { $0.kind == 4 }.count
+
+        return panel("Interactions") {
+            metricRow("Visible", "\(model.interactions.count)")
+            metricRow("Unresolved", "\(unresolved)")
+            metricRow("Actionable", "\(actionable)")
+            metricRow("Rooftop", "\(rooftop)")
         }
     }
 
@@ -244,6 +266,91 @@ struct ContentView: View {
         }
 
         return "\(value)"
+    }
+
+    private func interactionTaskRow(_ interaction: MosulInteraction) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(interaction.label)
+                        .font(.caption.weight(.semibold))
+                    Text("\(interactionKindName(interaction.kind)) | \(interaction.state) | \(Int(interaction.distance)) m")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+
+                HStack(spacing: 5) {
+                    if primaryInteractionTitle(interaction) != "Route", interaction.routeAvailable {
+                        Button("Route") {
+                            model.routeToInteraction(interaction)
+                        }
+                        .disabled(model.selectedUnit == nil)
+                    }
+
+                    Button(primaryInteractionTitle(interaction)) {
+                        performPrimaryInteraction(interaction)
+                    }
+                    .disabled(!primaryInteractionEnabled(interaction))
+                }
+                .font(.caption2)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func primaryInteractionTitle(_ interaction: MosulInteraction) -> String {
+        if interaction.source == 1 {
+            if interaction.vertical || interaction.open {
+                return "Route"
+            }
+
+            return "Breach"
+        }
+
+        return interaction.searched ? "Searched" : "Search"
+    }
+
+    private func primaryInteractionEnabled(_ interaction: MosulInteraction) -> Bool {
+        if interaction.source == 1 && (interaction.vertical || interaction.open) {
+            return interaction.routeAvailable
+        }
+
+        if interaction.source == 1 {
+            return interaction.actionable
+        }
+
+        return interaction.actionable && !interaction.searched
+    }
+
+    private func performPrimaryInteraction(_ interaction: MosulInteraction) {
+        if interaction.source == 1 {
+            if interaction.vertical || interaction.open {
+                model.routeToInteraction(interaction)
+            } else {
+                model.issueBreach(interaction)
+            }
+            return
+        }
+
+        model.issueSearch(interaction)
+    }
+
+    private func interactionKindName(_ kind: Int32) -> String {
+        switch kind {
+        case 1:
+            return "Breach"
+        case 3:
+            return "Cache"
+        case 4:
+            return "Rooftop"
+        case 5:
+            return "Danger"
+        case 6:
+            return "Shelter"
+        default:
+            return "Search"
+        }
     }
 
     private func outcomeColor(_ outcome: Int32) -> Color {

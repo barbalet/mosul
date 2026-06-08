@@ -10,7 +10,10 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 2 - Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
 - Completed: Step 3 - Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
 - Completed: Step 4 - Add player-facing after-action results from the existing C score/outcome data.
-- Active: Step 5 - Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
+- Completed: Step 5 - Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
+- Completed: Step 6 - Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
+- Active: Step 7 - Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+- Active detail: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -105,8 +108,11 @@ Do not pause engine development for a large new art pass. Add these assets only 
 2. Done 2026-06-08: Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
 3. Done 2026-06-08: Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
 4. Done 2026-06-08: Add player-facing after-action results from the existing C score/outcome data.
-5. Active: Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
-6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
-7. Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+5. Done 2026-06-08: Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
+   - Active detail 2026-06-08: Expose C-core breach/search/cache/rooftop interaction points through the bridge as map overlays and selected-unit controls.
+6. Done 2026-06-08: Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
+   - Active detail 2026-06-08: Add a root Mac smoke script and CI workflow that build the native Mosul and AIBattle app bundles through Xcode.
+7. Active: Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
+   - Active detail 2026-06-08: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
 8. Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
 9. Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
