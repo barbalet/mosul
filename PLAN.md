@@ -18,8 +18,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 10 - Improve civilian-risk readability where risk rings overlap contact, objective, and unit markers in the shared tactical map.
 - Completed: Step 11 - Keep edge labels and dense contact stacks inside the shared tactical-map frame.
 - Completed: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
-- Active: Step 13 - Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
-- Active detail: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.
+- Completed: Step 13 - Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
+- Active: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
+- Active detail: Use the C-core gameplay level IDs to label selected units, emphasize same-level versus vertical interactions, and tie the new upper-floor overlays to tactical state instead of visual toggles only.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -43,6 +44,7 @@ The project is ready to move from art/import work into playable-demo development
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
 - The shared Mac tactical map now draws civilian-risk as a dedicated underlay with stronger high-risk emphasis so civilians stay visible during contact/objective overlap.
 - The shared Mac tactical map now uses edge-aware objective/unit labels and clustered contact offsets so dense markers stay inside the rendered map frame.
+- The shared Mac tactical map now renders `modernerKrieg`'s runtime ground-level PNG plus upper-floor and roof-access alpha overlays with compact per-level toggles.
 - The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
 - The Mosul inspector now shows a player-facing after-action panel backed by the C core's score, outcome, summary, narrative, and score-component data, plus selected-unit interaction controls.
 - AIBattle now shows a compact tuning panel for pacing, risk, result criteria, contacts, interactions, and the first evidence-driven readability target.
@@ -138,5 +140,7 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Use the latest AIBattle evidence to clamp right-edge marker labels and reduce dense contact stack clipping before broader AI/play tuning.
 12. Done 2026-06-08: Tune AIBattle pacing and result criteria using the repeatable evidence report.
    - Active detail 2026-06-08: Use the latest AIBattle report to adjust autoplay pacing, unresolved-contact pressure, and partial-win criteria now that map readability blockers are reduced.
-13. Active: Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
+13. Done 2026-06-08: Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
    - Active detail 2026-06-08: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.
+14. Active: Add level-aware unit, contact, and interaction context to the Mac UI.
+   - Active detail 2026-06-08: Use the C-core gameplay level IDs to label selected units, emphasize same-level versus vertical interactions, and tie the new upper-floor overlays to tactical state instead of visual toggles only.

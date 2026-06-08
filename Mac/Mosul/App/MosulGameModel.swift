@@ -96,6 +96,38 @@ struct MosulInteraction: Identifiable {
     let routeAvailable: Bool
 }
 
+struct MosulMapLevel: Identifiable {
+    let id: String
+    let imagePath: String
+    let alpha: String
+    let index: Int32
+    let elevationM: CGFloat
+
+    var isBase: Bool {
+        index <= 1 || alpha == "opaque"
+    }
+
+    var shortLabel: String {
+        if isBase {
+            return "G"
+        }
+        if id.contains("roof_access") {
+            return "R"
+        }
+        return "\(index)"
+    }
+
+    var displayName: String {
+        if isBase {
+            return "Ground"
+        }
+        if id.contains("roof_access") {
+            return "Roof Access"
+        }
+        return "Level \(index)"
+    }
+}
+
 struct MosulScore {
     var total: Int32 = 0
     var objectivePoints: Int32 = 0
@@ -132,6 +164,8 @@ final class MosulGameModel: ObservableObject {
     @Published var briefing = ""
     @Published var mapName = ""
     @Published var mapOverviewPath = ""
+    @Published var mapLevels: [MosulMapLevel] = []
+    @Published var visibleMapLevelIDs: Set<String> = []
     @Published var lastError = ""
     @Published var tick: UInt32 = 0
     @Published var mapWidth: CGFloat = 500
@@ -146,6 +180,7 @@ final class MosulGameModel: ObservableObject {
     @Published var mode: MosulMapMode = .select
 
     private var engine: OpaquePointer?
+    private var mapLevelVisibilityInitialized = false
     let modernerKriegRoot: String
 
     var mosulRoot: String {
@@ -186,6 +221,26 @@ final class MosulGameModel: ObservableObject {
                 return first.distance < second.distance
             }
             return first.priority > second.priority
+        }
+    }
+
+    var visibleMapLevels: [MosulMapLevel] {
+        mapLevels.filter { level in
+            level.isBase || visibleMapLevelIDs.contains(level.id)
+        }
+    }
+
+    var overlayMapLevels: [MosulMapLevel] {
+        mapLevels.filter { !$0.isBase }
+    }
+
+    func toggleMapLevelVisibility(_ level: MosulMapLevel) {
+        guard !level.isBase else { return }
+
+        if visibleMapLevelIDs.contains(level.id) {
+            visibleMapLevelIDs.remove(level.id)
+        } else {
+            visibleMapLevelIDs.insert(level.id)
         }
     }
 
@@ -281,6 +336,7 @@ final class MosulGameModel: ObservableObject {
         mapWidth = CGFloat(MosulEngineMapWidthM(engine))
         mapHeight = CGFloat(MosulEngineMapHeightM(engine))
 
+        refreshMapLevels(engine)
         refreshUnits(engine)
         refreshObjectives(engine)
         refreshCivilians(engine)
@@ -288,6 +344,41 @@ final class MosulGameModel: ObservableObject {
         refreshInteractions(engine)
         refreshScore(engine)
         refreshAfterAction(engine)
+    }
+
+    private func refreshMapLevels(_ engine: OpaquePointer) {
+        let previousOverlayIDs = Set(mapLevels.filter { !$0.isBase }.map(\.id))
+        var raw = Array(repeating: MosulMapLevelSummary(), count: 8)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyMapLevels(engine, buffer.baseAddress, buffer.count)
+        }
+
+        let refreshed = raw.prefix(Int(count)).map { item in
+            MosulMapLevel(
+                id: bridgeString(item.id),
+                imagePath: bridgeString(item.image_path),
+                alpha: bridgeString(item.alpha),
+                index: item.index,
+                elevationM: CGFloat(item.elevation_m)
+            )
+        }
+        .sorted { first, second in
+            if first.index != second.index {
+                return first.index < second.index
+            }
+            return first.id < second.id
+        }
+
+        let overlayIDs = Set(refreshed.filter { !$0.isBase }.map(\.id))
+        mapLevels = refreshed
+
+        if !mapLevelVisibilityInitialized {
+            visibleMapLevelIDs = overlayIDs
+            mapLevelVisibilityInitialized = true
+        } else {
+            visibleMapLevelIDs = visibleMapLevelIDs.intersection(overlayIDs)
+            visibleMapLevelIDs.formUnion(overlayIDs.subtracting(previousOverlayIDs))
+        }
     }
 
     private func issueOrder(_ order: Int32) {

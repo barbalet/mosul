@@ -15,13 +15,19 @@ struct TacticalMapView: View {
                 Rectangle()
                     .fill(Color(nsColor: .windowBackgroundColor))
 
-                if let image = NSImage(contentsOfFile: model.mapOverviewPath) {
+                if let image = mapBaseImage() {
                     Image(nsImage: image)
                         .resizable()
                         .interpolation(.high)
                         .frame(width: layout.size.width, height: layout.size.height)
                         .position(x: layout.rect.midX, y: layout.rect.midY)
+
+                    ForEach(model.visibleMapLevels.filter { !$0.isBase }) { level in
+                        mapLevelImage(level, layout: layout)
+                    }
+
                     overlayContent(layout: layout, containerSize: proxy.size)
+                    mapLevelControls(layout: layout)
                 } else {
                     Text("Map PNG not found")
                         .font(.headline)
@@ -42,6 +48,74 @@ struct TacticalMapView: View {
                         model.handleMapTap(x: map.x, y: map.y)
                     }
             )
+        }
+    }
+
+    private func mapBaseImage() -> NSImage? {
+        if let basePath = model.mapLevels.first(where: { $0.isBase && !$0.imagePath.isEmpty })?.imagePath,
+           let image = NSImage(contentsOfFile: basePath) {
+            return image
+        }
+
+        return NSImage(contentsOfFile: model.mapOverviewPath)
+    }
+
+    @ViewBuilder
+    private func mapLevelImage(_ level: MosulMapLevel, layout: MapLayout) -> some View {
+        if let image = NSImage(contentsOfFile: level.imagePath) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .opacity(mapLevelOpacity(level))
+                .frame(width: layout.size.width, height: layout.size.height)
+                .position(x: layout.rect.midX, y: layout.rect.midY)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private func mapLevelControls(layout: MapLayout) -> some View {
+        let overlays = model.overlayMapLevels
+
+        if !overlays.isEmpty {
+            HStack(spacing: 5) {
+                Image(systemName: "square.3.layers.3d.top.filled")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 20)
+
+                ForEach(overlays) { level in
+                    let active = model.visibleMapLevelIDs.contains(level.id)
+
+                    Button {
+                        model.toggleMapLevelVisibility(level)
+                    } label: {
+                        Text(level.shortLabel)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(active ? Color.white : Color.secondary)
+                            .frame(width: 22, height: 20)
+                            .background(
+                                mapLevelControlColor(level).opacity(active ? 0.90 : 0.10),
+                                in: RoundedRectangle(cornerRadius: 4)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(mapLevelControlColor(level).opacity(active ? 0.95 : 0.35), lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(active ? "Hide" : "Show") \(level.displayName)")
+                }
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+            }
+            .position(x: layout.rect.minX + 70, y: layout.rect.minY + 24)
         }
     }
 
@@ -490,6 +564,29 @@ struct TacticalMapView: View {
         default:
             return fallback
         }
+    }
+
+    private func mapLevelOpacity(_ level: MosulMapLevel) -> Double {
+        if level.alpha == "opaque" {
+            return 1.0
+        }
+        if level.id.contains("roof_access") {
+            return 0.72
+        }
+        if level.index >= 3 {
+            return 0.66
+        }
+        return 0.78
+    }
+
+    private func mapLevelControlColor(_ level: MosulMapLevel) -> Color {
+        if level.id.contains("roof_access") {
+            return Color(red: 0.34, green: 0.52, blue: 0.46)
+        }
+        if level.index >= 3 {
+            return Color(red: 0.42, green: 0.42, blue: 0.62)
+        }
+        return Color(red: 0.36, green: 0.50, blue: 0.64)
     }
 
     private func markerSymbol(_ markerID: String, fallback: String) -> String {

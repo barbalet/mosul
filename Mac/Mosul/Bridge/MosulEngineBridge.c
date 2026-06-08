@@ -786,6 +786,42 @@ static void mosul_bridge_copy_marker_id(
     mosul_bridge_copy_text(destination, capacity, marker_id);
 }
 
+size_t MosulEngineCopyMapLevels(const MosulEngine *engine, MosulMapLevelSummary *out_levels, size_t capacity) {
+    const mk_gameplay_area_t *area;
+    size_t index;
+    size_t count;
+
+    if (engine == NULL || out_levels == NULL || capacity == 0) {
+        return 0;
+    }
+
+    area = &engine->game.gameplay_area;
+    if (!mk_gameplay_area_is_loaded(area)) {
+        return 0;
+    }
+
+    count = area->level_count < capacity ? area->level_count : capacity;
+    for (index = 0; index < count; ++index) {
+        const mk_gameplay_level_t *level = &area->levels[index];
+        MosulMapLevelSummary *summary = &out_levels[index];
+
+        memset(summary, 0, sizeof(*summary));
+        mosul_bridge_copy_text(summary->id, sizeof(summary->id), level->id);
+        mosul_bridge_copy_text(summary->alpha, sizeof(summary->alpha), level->alpha);
+        summary->index = level->index;
+        summary->elevation_m = level->elevation_m;
+        if (!mosul_bridge_join_path(
+                summary->image_path,
+                sizeof(summary->image_path),
+                engine->project_root,
+                level->image_path)) {
+            mosul_bridge_copy_text(summary->image_path, sizeof(summary->image_path), "");
+        }
+    }
+
+    return count;
+}
+
 size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_units, size_t capacity) {
     size_t index;
     size_t count;

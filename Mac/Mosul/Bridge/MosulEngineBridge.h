@@ -17,8 +17,17 @@ extern "C" {
 #define MOSUL_BRIDGE_MAX_CIVILIANS 128
 #define MOSUL_BRIDGE_MAX_CONTACTS 64
 #define MOSUL_BRIDGE_MAX_INTERACTIONS 128
+#define MOSUL_BRIDGE_MAX_MAP_LEVELS 8
 
 typedef struct MosulEngine MosulEngine;
+
+typedef struct {
+    char id[MOSUL_BRIDGE_NAME_CAPACITY];
+    char image_path[MOSUL_BRIDGE_PATH_CAPACITY];
+    char alpha[MOSUL_BRIDGE_NAME_CAPACITY];
+    int index;
+    float elevation_m;
+} MosulMapLevelSummary;
 
 typedef struct {
     uint32_t id;
@@ -160,6 +169,7 @@ bool MosulEngineIssueSelectedSearch(MosulEngine *engine, const char *interaction
 bool MosulEngineIssueSelectedBreach(MosulEngine *engine, const char *interaction_id);
 bool MosulEngineIssueSelectedRouteToInteraction(MosulEngine *engine, const char *interaction_id);
 
+size_t MosulEngineCopyMapLevels(const MosulEngine *engine, MosulMapLevelSummary *out_levels, size_t capacity);
 size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_units, size_t capacity);
 size_t MosulEngineCopyObjectives(const MosulEngine *engine, MosulObjectiveSummary *out_objectives, size_t capacity);
 size_t MosulEngineCopyCivilians(const MosulEngine *engine, MosulCivilianSummary *out_civilians, size_t capacity);
