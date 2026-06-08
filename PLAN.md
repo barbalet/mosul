@@ -8,6 +8,7 @@ The project is ready to move from art/import work into playable-demo development
 
 - The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
 - `Mosul.xcodeproj` now builds a native Mac SwiftUI shell from this repository.
+- `AIBattle.xcodeproj` builds a standalone Mac AI-vs-AI autoplay shell that reuses the Mosul model, tactical view, bridge, and C core sources.
 - `Mac/Mosul/App/` contains the SwiftUI presentation, map view, controls, and inspector.
 - `Mac/Mosul/Bridge/` contains a small C bridge over the `modernerKrieg` headers.
 - Public presentation art exists under `assets/readme/`.
@@ -95,3 +96,4 @@ Do not pause engine development for a large new art pass. Add these assets only 
 6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
 7. Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
 8. Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+9. Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.

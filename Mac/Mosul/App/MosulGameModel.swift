@@ -131,9 +131,9 @@ final class MosulGameModel: ObservableObject {
         units.first(where: { $0.selected })
     }
 
-    func reset() {
+    func reset(battleIndex: UInt32 = 1) {
         guard let engine else { return }
-        _ = MosulEngineReset(engine)
+        _ = MosulEngineResetBattle(engine, battleIndex)
         refresh()
     }
 

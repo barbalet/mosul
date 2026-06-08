@@ -156,6 +156,16 @@ xcodebuild -project Mosul.xcodeproj \
 
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, and runtime overview PNG directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
 
+The standalone `AIBattle.xcodeproj` app is an AI-vs-AI autoplay shell over the same shared Mosul Swift model, tactical map view, C bridge, and `modernerKrieg` core sources. It continuously runs both sides under AI, visualizes battle state, records each result, and restarts with the next seeded battle variant so playability and visualization can be exercised before the main player-facing app is complete.
+
+```sh
+xcodebuild -project AIBattle.xcodeproj \
+  -scheme AIBattle \
+  -configuration Debug \
+  -derivedDataPath build/AIBattleDerivedData \
+  build
+```
+
 ## Development Legacy
 
 MOSUL follows lessons from earlier work rather than starting from a blank page. `guderian` and its included `derZweiteWeltkrieg` engine provide useful design memory: deterministic C rules, headless tests, a thin presentation layer, scenario boards, morale, movement, fire, objectives, and a practical SwiftUI app path.
@@ -169,6 +179,7 @@ MOSUL is not a reskin of a World War II system. Modern Mosul needs its own rules
 ```text
 mosul/
   Mosul.xcodeproj/            native Mac demo project
+  AIBattle.xcodeproj/         native Mac AI-vs-AI autoplay project
   README.md
   Mac/                        SwiftUI app and C bridge
   assets/readme/              public README artwork

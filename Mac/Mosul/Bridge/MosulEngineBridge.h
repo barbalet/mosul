@@ -96,6 +96,7 @@ MosulEngine *MosulEngineCreate(const char *moderner_krieg_root);
 void MosulEngineDestroy(MosulEngine *engine);
 
 bool MosulEngineReset(MosulEngine *engine);
+bool MosulEngineResetBattle(MosulEngine *engine, uint32_t battle_index);
 bool MosulEngineStep(MosulEngine *engine, uint32_t steps);
 bool MosulEngineRunAI(MosulEngine *engine, uint32_t steps);
 

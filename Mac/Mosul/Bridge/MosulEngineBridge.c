@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MOSUL_BRIDGE_AI_BATTLE_SEED_STEP UINT64_C(0x9E3779B97F4A7C15)
+
 struct MosulEngine {
     char project_root[MOSUL_BRIDGE_PATH_CAPACITY];
     char scenario_path[MOSUL_BRIDGE_PATH_CAPACITY];
@@ -115,12 +117,15 @@ static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
     return true;
 }
 
-static bool mosul_bridge_load_game(MosulEngine *engine) {
+static bool mosul_bridge_load_game(MosulEngine *engine, uint32_t battle_index) {
     mk_result_t result;
+    uint32_t normalized_battle_index;
 
     if (engine == NULL) {
         return false;
     }
+
+    normalized_battle_index = battle_index == 0U ? 1U : battle_index;
 
     if (!mosul_bridge_join_path(
             engine->scenario_path,
@@ -136,6 +141,8 @@ static bool mosul_bridge_load_game(MosulEngine *engine) {
         mosul_bridge_set_error(engine, "Could not load 2003 Market / Commercial Streets scenario data.");
         return false;
     }
+
+    engine->scenario.seed += (uint64_t)(normalized_battle_index - 1U) * MOSUL_BRIDGE_AI_BATTLE_SEED_STEP;
 
     result = mk_game_load_scenario(&engine->game, &engine->scenario);
     if (result != MK_OK) {
@@ -161,7 +168,7 @@ MosulEngine *MosulEngineCreate(const char *moderner_krieg_root) {
 
     mosul_bridge_copy_text(engine->project_root, sizeof(engine->project_root), moderner_krieg_root);
 
-    if (!mosul_bridge_load_map_manifest(engine) || !mosul_bridge_load_game(engine)) {
+    if (!mosul_bridge_load_map_manifest(engine) || !mosul_bridge_load_game(engine, 1U)) {
         return engine;
     }
 
@@ -173,7 +180,11 @@ void MosulEngineDestroy(MosulEngine *engine) {
 }
 
 bool MosulEngineReset(MosulEngine *engine) {
-    return mosul_bridge_load_game(engine);
+    return MosulEngineResetBattle(engine, 1U);
+}
+
+bool MosulEngineResetBattle(MosulEngine *engine, uint32_t battle_index) {
+    return mosul_bridge_load_game(engine, battle_index);
 }
 
 bool MosulEngineStep(MosulEngine *engine, uint32_t steps) {
