@@ -13,8 +13,9 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 5 - Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
 - Completed: Step 6 - Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
 - Completed: Step 7 - Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
-- Active: Step 8 - Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
-- Active detail: Capture repeatable tactical-map PNG evidence for the current sprite/interaction/civilian overlay state and document how to use it in visual checks.
+- Completed: Step 8 - Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+- Active: Step 9 - Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
+- Active detail: Run and inspect repeatable AIBattle evidence to identify the first readability and pacing tuning target.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -31,6 +32,7 @@ The project is ready to move from art/import work into playable-demo development
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the Mosul and AIBattle app bundles through Xcode.
+- `scripts/capture_snapshot_evidence.sh` builds Mosul, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 - The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, hidden/contact, and breach/search/cache/rooftop interaction markers over the runtime sprites.
 - The C bridge now exposes the sprite and marker manifest ids the Mac map needs, unit/civilian sprite ids, validated tactical marker ids, breach/search/cache/rooftop interaction summaries, and selected-unit interaction commands.
@@ -116,6 +118,7 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Add a root Mac smoke script and CI workflow that build the native Mosul and AIBattle app bundles through Xcode.
 7. Done 2026-06-08: Keep README, `PLAN.md`, and `Mac/README.md` aligned whenever the frontend/core boundary changes.
    - Active detail 2026-06-08: Keep the documented frontend/core boundary current after the Mac smoke path and interaction-control changes.
-8. Active: Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
+8. Done 2026-06-08: Use `snapshot` captures as visual regression evidence when sprite-driven unit rendering and civilian state art replace the current symbolic overlays.
    - Active detail 2026-06-08: Capture repeatable tactical-map PNG evidence for the current sprite/interaction/civilian overlay state and document how to use it in visual checks.
-9. Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
+9. Active: Use AIBattle to tune AI pacing, result criteria, civilian-risk visibility, and battle-state readability before moving the same visualization improvements into the player-facing Mosul app.
+   - Active detail 2026-06-08: Run and inspect repeatable AIBattle evidence to identify the first readability and pacing tuning target.

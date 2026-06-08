@@ -42,6 +42,14 @@ The smoke path builds both native app bundles into `build/mac-smoke/` through Xc
 
 The codenamed `snapshot` test path writes the current tactical-map render to timestamped PNG files under `snapshots/` at the repository root. The directory is ignored by git so local visual samples can be captured freely while checking battle states, civilian risk, contact reports, and future sprite rendering.
 
+For repeatable visual evidence, run:
+
+```sh
+scripts/capture_snapshot_evidence.sh
+```
+
+The evidence script builds the Mosul app, runs a deterministic snapshot-only launch with AI ticks, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
+
 `AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a settled result, tick limit, or watchdog stall.
 
 Build AIBattle from the repository root:

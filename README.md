@@ -30,7 +30,13 @@ The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It i
 
 The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, receives the sprite and marker manifest ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays tactical markers for objectives, orders, routes, suppression, casualties, civilians, contact reports, and breach/search/cache/rooftop interactions, shows C-core after-action results in the inspector, and provides controls for selection, movement, investigation, breach/search, single-step simulation, reset, and deterministic AI ticks.
 
-The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development.
+The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development. For repeatable visual evidence, run:
+
+```sh
+scripts/capture_snapshot_evidence.sh
+```
+
+That command builds the Mosul app, runs a deterministic snapshot-only launch, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
 
 ## Tactical Identity
 
