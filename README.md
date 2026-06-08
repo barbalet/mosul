@@ -28,7 +28,7 @@ modernerKrieg/assets/mosul/manifests/
 
 The native Mac demo is now present in this repository as `Mosul.xcodeproj`. It is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
 
-The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, overlays C-core units, objectives, civilians, and contact reports, and provides basic controls for selection, movement, investigation orders, single-step simulation, reset, and deterministic AI ticks.
+The current Mac app renders the runtime Market / Commercial Streets overview PNG from `modernerKrieg/assets/mosul/runtime/`, resolves C-core unit glyphs through the runtime sprite manifest, draws the matching runtime PNG sprites from `modernerKrieg`, overlays objectives, civilians, and contact reports, and provides basic controls for selection, movement, investigation orders, single-step simulation, reset, and deterministic AI ticks.
 
 The Mac app also includes the codenamed `snapshot` path for visual testing. The Snapshot command renders the current tactical map to timestamped PNG files in the local `snapshots/` directory, which is ignored by git, so interesting battle states and civilian-risk moments can be kept as throwaway visual evidence during development.
 

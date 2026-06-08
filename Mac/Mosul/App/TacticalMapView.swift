@@ -3,6 +3,9 @@ import SwiftUI
 
 struct TacticalMapView: View {
     @ObservedObject var model: MosulGameModel
+    private var spriteManifest: MosulSpriteManifest {
+        MosulSpriteManifest.shared(for: model.modernerKriegRoot)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -89,13 +92,7 @@ struct TacticalMapView: View {
                 }
 
                 VStack(spacing: 2) {
-                    Circle()
-                        .fill(sideColor(unit.side))
-                        .frame(width: unit.selected ? 20 : 16, height: unit.selected ? 20 : 16)
-                        .overlay {
-                            Circle()
-                                .stroke(unit.selected ? Color.white : Color.black.opacity(0.35), lineWidth: unit.selected ? 3 : 1)
-                        }
+                    unitGlyph(unit, layout: layout)
                     Text(shortName(unit.name))
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .padding(.horizontal, 3)
@@ -119,6 +116,48 @@ struct TacticalMapView: View {
         case 3: return Color(red: 0.82, green: 0.67, blue: 0.34)
         default: return Color.gray
         }
+    }
+
+    @ViewBuilder
+    private func unitGlyph(_ unit: MosulUnit, layout: MapLayout) -> some View {
+        let size = unitSpriteSize(unit, layout: layout)
+
+        if let sprite = spriteManifest.unitSprite(for: unit),
+           let image = NSImage(contentsOfFile: sprite.path) {
+            ZStack {
+                Circle()
+                    .fill(sideColor(unit.side).opacity(0.16))
+                    .frame(width: size * 0.72, height: size * 0.72)
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+                    .opacity(unit.hidden && !unit.revealed ? 0.72 : 1.0)
+            }
+            .frame(width: size, height: size)
+            .overlay {
+                Circle()
+                    .stroke(unit.selected ? Color.white : sideColor(unit.side).opacity(0.55), lineWidth: unit.selected ? 3 : 1)
+                    .frame(width: size * 0.78, height: size * 0.78)
+            }
+        } else {
+            Circle()
+                .fill(sideColor(unit.side))
+                .frame(width: unit.selected ? 20 : 16, height: unit.selected ? 20 : 16)
+                .overlay {
+                    Circle()
+                        .stroke(unit.selected ? Color.white : Color.black.opacity(0.35), lineWidth: unit.selected ? 3 : 1)
+                }
+        }
+    }
+
+    private func unitSpriteSize(_ unit: MosulUnit, layout: MapLayout) -> CGFloat {
+        if unit.side == 3 {
+            return max(24, min(46, layout.scale * 12))
+        }
+
+        return max(unit.selected ? 34 : 30, min(unit.selected ? 62 : 54, layout.scale * 15))
     }
 
     private func mapLayout(in size: CGSize) -> MapLayout {

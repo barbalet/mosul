@@ -4,6 +4,12 @@
 
 The project is ready to move from art/import work into playable-demo development. The next job is to turn the existing source art, scenario concept, and engine core into a small playable vertical slice.
 
+## Active Development Step
+
+- Completed: Step 1 - Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
+- Active: Step 2 - Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+- Last advanced: 2026-06-08
+
 ## Current Public Baseline
 
 - The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
@@ -17,6 +23,7 @@ The project is ready to move from art/import work into playable-demo development
 - Source art and generated runtime art for the 2003 demo exist under `modernerKrieg/assets/mosul/`.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
+- The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
 
 ## Playable Demo Target
 
@@ -88,8 +95,8 @@ Do not pause engine development for a large new art pass. Add these assets only 
 
 ## Immediate Next Steps
 
-1. Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
-2. Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+1. Done 2026-06-08: Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
+2. Active: Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
 3. Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
 4. Add player-facing after-action results from the existing C score/outcome data.
 5. Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
