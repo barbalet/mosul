@@ -7,7 +7,8 @@ The project is ready to move from art/import work into playable-demo development
 ## Active Development Step
 
 - Completed: Step 1 - Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
-- Active: Step 2 - Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+- Completed: Step 2 - Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+- Active: Step 3 - Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
 - Last advanced: 2026-06-08
 
 ## Current Public Baseline
@@ -24,6 +25,7 @@ The project is ready to move from art/import work into playable-demo development
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
+- The shared Mac tactical map now shows order, selection, route destination, suppression, casualty, objective, civilian-risk, and hidden/contact markers over the runtime sprites.
 
 ## Playable Demo Target
 
@@ -85,7 +87,7 @@ The demo is playable when a user can launch one scenario, inspect the map, selec
 The imported art is enough to start development. The likely missing public-demo assets are narrow and can be planned while implementation begins:
 
 - civilian/non-combatant top-down sprites
-- selection, order, route, objective, suppression, casualty, and hidden-contact markers
+- custom PNG marker art for selection, order, route, objective, suppression, casualty, and hidden-contact states if the current SwiftUI markers are not enough
 - rooftop, stair, breach, search/cache, checkpoint, and suspected-danger markers
 - engine-ready map tiles at the chosen demo zoom levels
 - collision/pathfinding masks for roads, interiors, rooftops, rubble, blocked routes, and upper-floor access
@@ -96,8 +98,8 @@ Do not pause engine development for a large new art pass. Add these assets only 
 ## Immediate Next Steps
 
 1. Done 2026-06-08: Replace the first SwiftUI unit markers with sprite-manifest driven runtime PNG drawing.
-2. Active: Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
-3. Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
+2. Done 2026-06-08: Add visible order, selection, route, suppression, casualty, objective, and hidden-contact markers in the Mac app.
+3. Active: Expose sprite/marker manifest ids through the bridge only where the Mac app needs them.
 4. Add player-facing after-action results from the existing C score/outcome data.
 5. Deepen breach/search/cache/rooftop interactions in the C core, then surface only their controls and overlays in SwiftUI.
 6. Add a repeatable Mac app smoke path in addition to the existing headless CTest coverage.
