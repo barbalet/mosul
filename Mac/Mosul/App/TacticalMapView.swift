@@ -148,6 +148,28 @@ struct TacticalMapView: View {
                 civilianMarker(civilian, at: point)
             }
 
+            ForEach(model.trafficVehicles.filter { $0.active && ($0.hasDestination || $0.hasRoute) }) { vehicle in
+                let point = screenPoint(x: vehicle.x, y: vehicle.y, layout: layout)
+                let markerPoint = clampedMarkerPoint(point, size: trafficVehicleMarkerSize(vehicle, layout: layout), layout: layout)
+                let destinationPoint = screenPoint(x: vehicle.destinationX, y: vehicle.destinationY, layout: layout)
+                let destination = clampedMarkerPoint(destinationPoint, size: CGSize(width: 22, height: 22), layout: layout)
+
+                Path { path in
+                    path.move(to: markerPoint)
+                    path.addLine(to: destination)
+                }
+                .stroke(trafficVehicleColor(vehicle).opacity(0.62), style: StrokeStyle(lineWidth: 1.8, dash: [5, 5]))
+                trafficVehicleDestinationMarker(vehicle, at: destination)
+            }
+
+            ForEach(model.trafficVehicles.filter { $0.active }) { vehicle in
+                let point = screenPoint(x: vehicle.x, y: vehicle.y, layout: layout)
+                let markerPoint = clampedMarkerPoint(point, size: trafficVehicleMarkerSize(vehicle, layout: layout), layout: layout)
+
+                trafficVehicleMarker(vehicle, at: markerPoint, layout: layout)
+                trafficVehicleLabel(vehicle, at: markerPoint, layout: layout)
+            }
+
             ForEach(Array(model.contacts.enumerated()), id: \.element.id) { index, contact in
                 let point = screenPoint(x: contact.x, y: contact.y, layout: layout)
                 contactMarker(contact, at: contactMarkerPoint(contact, basePoint: point, index: index, layout: layout))
@@ -410,6 +432,71 @@ struct TacticalMapView: View {
                 .foregroundStyle(color)
         }
         .position(point)
+    }
+
+    private func trafficVehicleDestinationMarker(_ vehicle: MosulTrafficVehicle, at point: CGPoint) -> some View {
+        let color = trafficVehicleColor(vehicle)
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(color.opacity(0.12))
+                .frame(width: 18, height: 18)
+                .rotationEffect(.degrees(45))
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(color.opacity(0.88), lineWidth: 1.4)
+                .frame(width: 18, height: 18)
+                .rotationEffect(.degrees(45))
+            Image(systemName: "arrow.forward")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(color)
+        }
+        .position(point)
+    }
+
+    private func trafficVehicleMarker(_ vehicle: MosulTrafficVehicle, at point: CGPoint, layout: MapLayout) -> some View {
+        let size = trafficVehicleSpriteSize(vehicle, layout: layout)
+        let badgeColor = trafficVehicleColor(vehicle)
+
+        return ZStack(alignment: .topTrailing) {
+            trafficVehicleGlyph(vehicle, layout: layout)
+
+            if vehicle.occupiedSeats > 0 {
+                Text("\(vehicle.occupiedSeats)")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(width: 16, height: 16)
+                    .background(badgeColor.opacity(0.96), in: Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white.opacity(0.75), lineWidth: 0.8)
+                    }
+                    .offset(x: 4, y: -4)
+            }
+        }
+        .frame(width: size + 10, height: size + 10)
+        .position(point)
+        .accessibilityLabel("\(vehicle.name), \(trafficVehicleKindName(vehicle.kind))")
+    }
+
+    private func trafficVehicleLabel(_ vehicle: MosulTrafficVehicle, at point: CGPoint, layout: MapLayout) -> some View {
+        let label = "\(trafficVehicleShortName(vehicle)) \(vehicle.occupiedSeats)/\(vehicle.seatCapacity)"
+        let labelSize = CGSize(width: labelWidth(for: label, minWidth: 48, maxWidth: 96), height: 16)
+        let spriteSize = trafficVehicleSpriteSize(vehicle, layout: layout)
+        let yOffset = point.y > layout.rect.maxY - 34 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
+        let labelPoint = clampedLabelPoint(
+            near: point,
+            offset: CGSize(width: 0, height: yOffset),
+            size: labelSize,
+            layout: layout
+        )
+
+        return Text(label)
+            .font(.system(size: 8, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(width: labelSize.width, height: labelSize.height)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .position(labelPoint)
     }
 
     private func unitMarker(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
@@ -799,12 +886,105 @@ struct TacticalMapView: View {
         }
     }
 
+    @ViewBuilder
+    private func trafficVehicleGlyph(_ vehicle: MosulTrafficVehicle, layout: MapLayout) -> some View {
+        let size = trafficVehicleSpriteSize(vehicle, layout: layout)
+        let color = trafficVehicleColor(vehicle)
+
+        if let sprite = spriteManifest.trafficVehicleSprite(for: vehicle),
+           let image = NSImage(contentsOfFile: sprite.path) {
+            ZStack {
+                Capsule()
+                    .fill(color.opacity(vehicle.isMoving ? 0.18 : 0.10))
+                    .frame(width: size * 0.82, height: size * 0.46)
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+                    .shadow(color: .black.opacity(0.20), radius: 1.5, x: 0, y: 1)
+            }
+            .frame(width: size, height: size)
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(color.opacity(vehicle.isMoving ? 0.72 : 0.45), lineWidth: vehicle.isMoving ? 1.4 : 0.9)
+                    .frame(width: size * 0.74, height: size * 0.42)
+            }
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: vehicle.kind == 2 ? 6 : 5)
+                    .fill(color.opacity(0.34))
+                    .frame(
+                        width: vehicle.kind == 1 ? size * 0.76 : size * 0.62,
+                        height: vehicle.kind == 2 ? size * 0.26 : size * 0.36
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: vehicle.kind == 2 ? 6 : 5)
+                            .stroke(color.opacity(0.86), lineWidth: 1.3)
+                    }
+                Image(systemName: trafficVehicleSymbol(vehicle))
+                    .font(.system(size: max(10, size * 0.26), weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            .frame(width: size, height: size)
+        }
+    }
+
     private func unitSpriteSize(_ unit: MosulUnit, layout: MapLayout) -> CGFloat {
         if unit.side == 3 {
             return max(24, min(46, layout.scale * 12))
         }
 
         return max(unit.selected ? 34 : 30, min(unit.selected ? 62 : 54, layout.scale * 15))
+    }
+
+    private func trafficVehicleSpriteSize(_ vehicle: MosulTrafficVehicle, layout: MapLayout) -> CGFloat {
+        switch vehicle.kind {
+        case 1:
+            return max(52, min(78, layout.scale * 22))
+        case 2:
+            return max(28, min(42, layout.scale * 10))
+        default:
+            return max(38, min(60, layout.scale * 15))
+        }
+    }
+
+    private func trafficVehicleMarkerSize(_ vehicle: MosulTrafficVehicle, layout: MapLayout) -> CGSize {
+        let size = trafficVehicleSpriteSize(vehicle, layout: layout)
+        return CGSize(width: size + 36, height: size + 30)
+    }
+
+    private func trafficVehicleShortName(_ vehicle: MosulTrafficVehicle) -> String {
+        switch vehicle.kind {
+        case 1:
+            return "Bus"
+        case 2:
+            return "Moto"
+        default:
+            return "Car"
+        }
+    }
+
+    private func trafficVehicleSymbol(_ vehicle: MosulTrafficVehicle) -> String {
+        switch vehicle.kind {
+        case 1:
+            return "bus.fill"
+        case 2:
+            return "motorcycle"
+        default:
+            return "car.fill"
+        }
+    }
+
+    private func trafficVehicleColor(_ vehicle: MosulTrafficVehicle) -> Color {
+        switch vehicle.kind {
+        case 1:
+            return Color(red: 0.43, green: 0.48, blue: 0.52)
+        case 2:
+            return Color(red: 0.26, green: 0.53, blue: 0.48)
+        default:
+            return Color(red: 0.38, green: 0.42, blue: 0.49)
+        }
     }
 
     private func labelWidth(for text: String, minWidth: CGFloat = 42, maxWidth: CGFloat) -> CGFloat {

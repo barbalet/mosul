@@ -118,6 +118,10 @@ struct AIBattleTuningSnapshot {
     let highRiskCivilians: Int
     let woundedCivilians: Int
     let deadCivilians: Int
+    let trafficVehicleCount: Int
+    let movingTrafficVehicles: Int
+    let occupiedTrafficSeats: Int
+    let trafficSeatCapacity: Int
     let interactionCount: Int
     let unresolvedInteractions: Int
     let actionableInteractions: Int
@@ -153,6 +157,10 @@ struct AIBattleTuningSnapshot {
         highRiskCivilians = model.civilians.filter { $0.risk >= 4 }.count
         woundedCivilians = model.civilians.filter { $0.state == 5 }.count
         deadCivilians = model.civilians.filter { $0.state == 6 }.count
+        trafficVehicleCount = model.trafficVehicles.count
+        movingTrafficVehicles = model.trafficVehicles.filter { $0.isMoving }.count
+        occupiedTrafficSeats = model.trafficVehicles.reduce(0) { $0 + Int($1.occupiedSeats) }
+        trafficSeatCapacity = model.trafficVehicles.reduce(0) { $0 + Int($1.seatCapacity) }
         interactionCount = model.interactions.count
         unresolvedInteractions = model.interactions.filter { !$0.searched && !$0.breached && !$0.open }.count
         actionableInteractions = model.interactions.filter { $0.actionable || $0.routeAvailable }.count
@@ -182,6 +190,9 @@ struct AIBattleTuningSnapshot {
         }
         if movingUnits > 0 {
             return "Maneuvering"
+        }
+        if movingTrafficVehicles > 0 {
+            return "Traffic moving"
         }
         return "Opening"
     }
@@ -249,6 +260,7 @@ struct AIBattleTuningSnapshot {
         partial_settlement=\(partialSettlementState)
         units=\(unitCount) total / \(playerUnits) player / \(opforUnits) opfor / \(movingUnits) moving / \(engagedUnits) engaged
         civilians=\(civilianCount) total / \(civiliansAtRisk) at_risk / \(highRiskCivilians) high_risk / \(woundedCivilians) wounded / \(deadCivilians) dead
+        traffic_vehicles=\(trafficVehicleCount) total / \(movingTrafficVehicles) moving / \(occupiedTrafficSeats) occupied / \(trafficSeatCapacity) seats
         interactions=\(interactionCount) total / \(unresolvedInteractions) unresolved / \(actionableInteractions) actionable
         first_tuning_target=\(firstTuningTarget)
         """
@@ -337,6 +349,7 @@ struct AIBattleContentView: View {
                 scorePanel
                 tuningPanel
                 civilianPanel
+                trafficPanel
                 unitsPanel
                 contactsPanel
 
@@ -382,6 +395,31 @@ struct AIBattleContentView: View {
             metricRow("At Risk", "\(atRisk)")
             metricRow("Wounded", "\(wounded)")
             metricRow("Dead", "\(dead)")
+        }
+    }
+
+    private var trafficPanel: some View {
+        let moving = model.trafficVehicles.filter { $0.isMoving }.count
+        let occupied = model.trafficVehicles.reduce(0) { $0 + Int($1.occupiedSeats) }
+        let capacity = model.trafficVehicles.reduce(0) { $0 + Int($1.seatCapacity) }
+
+        return panel("Traffic") {
+            metricRow("Vehicles", "\(model.trafficVehicles.count)")
+            metricRow("Moving", "\(moving)")
+            metricRow("Seats", "\(occupied)/\(capacity)")
+
+            ForEach(model.trafficVehicles.prefix(4)) { vehicle in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(trafficVehicleKindName(vehicle.kind))
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text("\(vehicle.isMoving ? "route" : "hold") \(vehicle.occupiedSeats)/\(vehicle.seatCapacity)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 
@@ -1176,6 +1214,7 @@ private struct AIBattleMovieFrameView: View {
                     scorePanel
                     tuningPanel
                     civilianPanel
+                    trafficPanel
                     unitsPanel
                     contactsPanel
                     Spacer(minLength: 0)
@@ -1248,6 +1287,27 @@ private struct AIBattleMovieFrameView: View {
             metricRow("At Risk", "\(snapshot.civiliansAtRisk)")
             metricRow("High Risk", "\(snapshot.highRiskCivilians)")
             metricRow("Wounded/Dead", "\(snapshot.woundedCivilians)/\(snapshot.deadCivilians)")
+        }
+    }
+
+    private var trafficPanel: some View {
+        panel("Traffic") {
+            metricRow("Vehicles", "\(snapshot.trafficVehicleCount)")
+            metricRow("Moving", "\(snapshot.movingTrafficVehicles)")
+            metricRow("Seats", "\(snapshot.occupiedTrafficSeats)/\(snapshot.trafficSeatCapacity)")
+
+            ForEach(model.trafficVehicles.prefix(4)) { vehicle in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(trafficVehicleKindName(vehicle.kind))
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text("\(vehicle.isMoving ? "route" : "hold") \(vehicle.occupiedSeats)/\(vehicle.seatCapacity)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 

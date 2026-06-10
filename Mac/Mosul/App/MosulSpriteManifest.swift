@@ -54,6 +54,31 @@ final class MosulSpriteManifest {
         return nil
     }
 
+    func trafficVehicleSprite(for vehicle: MosulTrafficVehicle) -> MosulResolvedSprite? {
+        let descriptor = MosulSpriteDescriptor(
+            imageSet: "traffic_vehicles_1024",
+            faction: "civilian",
+            entity: trafficVehicleEntity(for: vehicle),
+            state: "intact",
+            facing: spriteFacing(forDegrees: vehicle.facingDegrees),
+            side: 3
+        )
+        let candidates = [
+            descriptor,
+            descriptor.with(facing: "north"),
+            descriptor.with(facing: "east")
+        ].filter { containsEntity($0) }
+
+        for candidate in candidates {
+            let url = spriteURL(for: candidate)
+            if fileManager.fileExists(atPath: url.path) {
+                return MosulResolvedSprite(path: url.path, pixelSize: pixelSize(for: candidate.imageSet))
+            }
+        }
+
+        return nil
+    }
+
     private func candidateSprites(for descriptor: MosulSpriteDescriptor) -> [MosulSpriteDescriptor] {
         [
             descriptor,
@@ -178,6 +203,27 @@ final class MosulSpriteManifest {
         }
     }
 
+    private func trafficVehicleEntity(for vehicle: MosulTrafficVehicle) -> String {
+        if vehicle.spriteID.contains("city_bus") {
+            return "traffic_city_bus"
+        }
+        if vehicle.spriteID.contains("motorcycle") {
+            return "traffic_motorcycle"
+        }
+        if vehicle.spriteID.contains("civilian_car") {
+            return "traffic_civilian_car"
+        }
+
+        switch vehicle.kind {
+        case 1:
+            return "traffic_city_bus"
+        case 2:
+            return "traffic_motorcycle"
+        default:
+            return "traffic_civilian_car"
+        }
+    }
+
     private func spriteState(for unit: MosulUnit) -> String {
         if unit.soldierCount > 0 && unit.casualtyCount >= unit.soldierCount {
             return "dead"
@@ -230,6 +276,37 @@ final class MosulSpriteManifest {
             return "north_east"
         default:
             return defaultFacing(for: unit.side)
+        }
+    }
+
+    private func spriteFacing(forDegrees rawDegrees: CGFloat) -> String {
+        var degrees = rawDegrees.truncatingRemainder(dividingBy: 360)
+        if degrees > 180 {
+            degrees -= 360
+        }
+        if degrees <= -180 {
+            degrees += 360
+        }
+
+        switch degrees {
+        case -22.5..<22.5:
+            return "east"
+        case 22.5..<67.5:
+            return "south_east"
+        case 67.5..<112.5:
+            return "south"
+        case 112.5..<157.5:
+            return "south_west"
+        case 157.5...180, -180 ..< -157.5:
+            return "west"
+        case -157.5 ..< -112.5:
+            return "north_west"
+        case -112.5 ..< -67.5:
+            return "north"
+        case -67.5 ..< -22.5:
+            return "north_east"
+        default:
+            return "east"
         }
     }
 

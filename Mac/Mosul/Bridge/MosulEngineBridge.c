@@ -1071,6 +1071,56 @@ size_t MosulEngineCopyCivilians(const MosulEngine *engine, MosulCivilianSummary 
     return count;
 }
 
+size_t MosulEngineCopyTrafficVehicles(
+    const MosulEngine *engine,
+    MosulTrafficVehicleSummary *out_traffic_vehicles,
+    size_t capacity
+) {
+    size_t index;
+    size_t count;
+
+    if (engine == NULL || out_traffic_vehicles == NULL || capacity == 0) {
+        return 0;
+    }
+
+    count = engine->game.traffic_vehicle_count < capacity ? engine->game.traffic_vehicle_count : capacity;
+    for (index = 0; index < count; ++index) {
+        const mk_traffic_vehicle_t *vehicle = &engine->game.traffic_vehicles[index];
+        MosulTrafficVehicleSummary *summary = &out_traffic_vehicles[index];
+
+        memset(summary, 0, sizeof(*summary));
+        summary->id = vehicle->id;
+        mosul_bridge_copy_text(summary->scenario_id, sizeof(summary->scenario_id), vehicle->scenario_id);
+        mosul_bridge_copy_text(summary->name, sizeof(summary->name), vehicle->name);
+        mosul_bridge_copy_text(summary->sprite_id, sizeof(summary->sprite_id), vehicle->sprite_id);
+        mosul_bridge_copy_text(summary->level_id, sizeof(summary->level_id), vehicle->level_id);
+        mosul_bridge_copy_text(summary->destination_level_id, sizeof(summary->destination_level_id), vehicle->destination_level_id);
+        mosul_bridge_copy_text(summary->topology_node_id, sizeof(summary->topology_node_id), vehicle->topology_node_id);
+        mosul_bridge_copy_text(summary->route_failure_reason, sizeof(summary->route_failure_reason), vehicle->route_failure_reason);
+        summary->kind = (int)vehicle->kind;
+        summary->boarding_mode = (int)vehicle->boarding_mode;
+        summary->x_m = vehicle->position_m.x;
+        summary->y_m = vehicle->position_m.y;
+        summary->destination_x_m = vehicle->destination_m.x;
+        summary->destination_y_m = vehicle->destination_m.y;
+        summary->has_destination = vehicle->has_destination;
+        summary->speed_m_per_tick = vehicle->speed_m_per_tick;
+        summary->facing_degrees = vehicle->facing_degrees;
+        summary->seat_capacity = vehicle->seat_capacity;
+        summary->occupied_seats = vehicle->occupied_seats;
+        summary->active = vehicle->active;
+        summary->blocks_movement = vehicle->blocks_movement;
+        summary->has_route = vehicle->has_route;
+        summary->route_step_count = vehicle->route_step_count;
+        summary->route_step_index = vehicle->route_step_index;
+        summary->route_total_cost = vehicle->route_total_cost;
+        summary->route_uses_vertical_transition = vehicle->route_uses_vertical_transition;
+        summary->route_failure_count = vehicle->route_failure_count;
+    }
+
+    return count;
+}
+
 size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *out_contacts, size_t capacity) {
     size_t index;
     size_t count;

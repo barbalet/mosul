@@ -65,6 +65,40 @@ struct MosulCivilian: Identifiable {
     let risk: Int32
 }
 
+struct MosulTrafficVehicle: Identifiable {
+    let id: UInt32
+    let scenarioID: String
+    let name: String
+    let spriteID: String
+    let levelID: String
+    let destinationLevelID: String
+    let topologyNodeID: String
+    let routeFailureReason: String
+    let kind: Int32
+    let boardingMode: Int32
+    let x: CGFloat
+    let y: CGFloat
+    let destinationX: CGFloat
+    let destinationY: CGFloat
+    let hasDestination: Bool
+    let speedMPerTick: CGFloat
+    let facingDegrees: CGFloat
+    let seatCapacity: Int32
+    let occupiedSeats: Int32
+    let active: Bool
+    let blocksMovement: Bool
+    let hasRoute: Bool
+    let routeStepCount: Int
+    let routeStepIndex: Int
+    let routeTotalCost: Int32
+    let routeUsesVerticalTransition: Bool
+    let routeFailureCount: UInt32
+
+    var isMoving: Bool {
+        active && hasDestination
+    }
+}
+
 struct MosulContact: Identifiable {
     let id: UInt32
     let tick: UInt32
@@ -217,6 +251,7 @@ final class MosulGameModel: ObservableObject {
     @Published var units: [MosulUnit] = []
     @Published var objectives: [MosulObjective] = []
     @Published var civilians: [MosulCivilian] = []
+    @Published var trafficVehicles: [MosulTrafficVehicle] = []
     @Published var contacts: [MosulContact] = []
     @Published var interactions: [MosulInteraction] = []
     @Published var score = MosulScore()
@@ -528,6 +563,7 @@ final class MosulGameModel: ObservableObject {
         refreshUnits(engine)
         refreshObjectives(engine)
         refreshCivilians(engine)
+        refreshTrafficVehicles(engine)
         refreshContacts(engine)
         refreshInteractions(engine)
         refreshTacticalMapLevelVisibility()
@@ -675,6 +711,45 @@ final class MosulGameModel: ObservableObject {
                 state: item.state,
                 stress: item.stress,
                 risk: item.risk
+            )
+        }
+    }
+
+    private func refreshTrafficVehicles(_ engine: OpaquePointer) {
+        var raw = Array(repeating: MosulTrafficVehicleSummary(), count: 32)
+        let count = raw.withUnsafeMutableBufferPointer { buffer in
+            MosulEngineCopyTrafficVehicles(engine, buffer.baseAddress, buffer.count)
+        }
+
+        trafficVehicles = raw.prefix(Int(count)).map { item in
+            MosulTrafficVehicle(
+                id: item.id,
+                scenarioID: bridgeString(item.scenario_id),
+                name: bridgeString(item.name),
+                spriteID: bridgeString(item.sprite_id),
+                levelID: bridgeString(item.level_id),
+                destinationLevelID: bridgeString(item.destination_level_id),
+                topologyNodeID: bridgeString(item.topology_node_id),
+                routeFailureReason: bridgeString(item.route_failure_reason),
+                kind: item.kind,
+                boardingMode: item.boarding_mode,
+                x: CGFloat(item.x_m),
+                y: CGFloat(item.y_m),
+                destinationX: CGFloat(item.destination_x_m),
+                destinationY: CGFloat(item.destination_y_m),
+                hasDestination: item.has_destination,
+                speedMPerTick: CGFloat(item.speed_m_per_tick),
+                facingDegrees: CGFloat(item.facing_degrees),
+                seatCapacity: item.seat_capacity,
+                occupiedSeats: item.occupied_seats,
+                active: item.active,
+                blocksMovement: item.blocks_movement,
+                hasRoute: item.has_route,
+                routeStepCount: item.route_step_count,
+                routeStepIndex: item.route_step_index,
+                routeTotalCost: item.route_total_cost,
+                routeUsesVerticalTransition: item.route_uses_vertical_transition,
+                routeFailureCount: item.route_failure_count
             )
         }
     }
@@ -865,5 +940,22 @@ func contactName(_ kind: Int32) -> String {
     case 3: return "Suspected"
     case 4: return "False Contact"
     default: return "Contact"
+    }
+}
+
+func trafficVehicleKindName(_ kind: Int32) -> String {
+    switch kind {
+    case 0: return "Car"
+    case 1: return "Bus"
+    case 2: return "Motorcycle"
+    default: return "Vehicle"
+    }
+}
+
+func trafficBoardingModeName(_ mode: Int32) -> String {
+    switch mode {
+    case 0: return "inside"
+    case 1: return "on"
+    default: return "boarding"
     }
 }
