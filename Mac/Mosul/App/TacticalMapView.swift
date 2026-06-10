@@ -167,7 +167,9 @@ struct TacticalMapView: View {
                 let markerPoint = clampedMarkerPoint(point, size: trafficVehicleMarkerSize(vehicle, layout: layout), layout: layout)
 
                 trafficVehicleMarker(vehicle, at: markerPoint, layout: layout)
-                trafficVehicleLabel(vehicle, at: markerPoint, layout: layout)
+                if vehicle.isMoving || vehicle.occupiedSeats > 0 || vehicle.routeFailureCount > 0 {
+                    trafficVehicleLabel(vehicle, at: markerPoint, layout: layout)
+                }
             }
 
             ForEach(Array(model.contacts.enumerated()), id: \.element.id) { index, contact in

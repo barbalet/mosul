@@ -120,6 +120,7 @@ struct AIBattleTuningSnapshot {
     let deadCivilians: Int
     let trafficVehicleCount: Int
     let movingTrafficVehicles: Int
+    let staticTrafficVehicles: Int
     let occupiedTrafficSeats: Int
     let trafficSeatCapacity: Int
     let interactionCount: Int
@@ -159,6 +160,7 @@ struct AIBattleTuningSnapshot {
         deadCivilians = model.civilians.filter { $0.state == 6 }.count
         trafficVehicleCount = model.trafficVehicles.count
         movingTrafficVehicles = model.trafficVehicles.filter { $0.isMoving }.count
+        staticTrafficVehicles = model.trafficVehicles.filter { $0.isStatic }.count
         occupiedTrafficSeats = model.trafficVehicles.reduce(0) { $0 + Int($1.occupiedSeats) }
         trafficSeatCapacity = model.trafficVehicles.reduce(0) { $0 + Int($1.seatCapacity) }
         interactionCount = model.interactions.count
@@ -260,7 +262,7 @@ struct AIBattleTuningSnapshot {
         partial_settlement=\(partialSettlementState)
         units=\(unitCount) total / \(playerUnits) player / \(opforUnits) opfor / \(movingUnits) moving / \(engagedUnits) engaged
         civilians=\(civilianCount) total / \(civiliansAtRisk) at_risk / \(highRiskCivilians) high_risk / \(woundedCivilians) wounded / \(deadCivilians) dead
-        traffic_vehicles=\(trafficVehicleCount) total / \(movingTrafficVehicles) moving / \(occupiedTrafficSeats) occupied / \(trafficSeatCapacity) seats
+        traffic_vehicles=\(trafficVehicleCount) total / \(movingTrafficVehicles) moving / \(staticTrafficVehicles) static / \(occupiedTrafficSeats) occupied / \(trafficSeatCapacity) seats
         interactions=\(interactionCount) total / \(unresolvedInteractions) unresolved / \(actionableInteractions) actionable
         first_tuning_target=\(firstTuningTarget)
         """
@@ -400,12 +402,14 @@ struct AIBattleContentView: View {
 
     private var trafficPanel: some View {
         let moving = model.trafficVehicles.filter { $0.isMoving }.count
+        let staticVehicles = model.trafficVehicles.filter { $0.isStatic }.count
         let occupied = model.trafficVehicles.reduce(0) { $0 + Int($1.occupiedSeats) }
         let capacity = model.trafficVehicles.reduce(0) { $0 + Int($1.seatCapacity) }
 
         return panel("Traffic") {
             metricRow("Vehicles", "\(model.trafficVehicles.count)")
             metricRow("Moving", "\(moving)")
+            metricRow("Static", "\(staticVehicles)")
             metricRow("Seats", "\(occupied)/\(capacity)")
 
             ForEach(model.trafficVehicles.prefix(4)) { vehicle in
@@ -1294,6 +1298,7 @@ private struct AIBattleMovieFrameView: View {
         panel("Traffic") {
             metricRow("Vehicles", "\(snapshot.trafficVehicleCount)")
             metricRow("Moving", "\(snapshot.movingTrafficVehicles)")
+            metricRow("Static", "\(snapshot.staticTrafficVehicles)")
             metricRow("Seats", "\(snapshot.occupiedTrafficSeats)/\(snapshot.trafficSeatCapacity)")
 
             ForEach(model.trafficVehicles.prefix(4)) { vehicle in

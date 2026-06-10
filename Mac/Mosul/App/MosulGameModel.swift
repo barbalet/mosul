@@ -97,6 +97,10 @@ struct MosulTrafficVehicle: Identifiable {
     var isMoving: Bool {
         active && hasDestination
     }
+
+    var isStatic: Bool {
+        active && !hasDestination
+    }
 }
 
 struct MosulContact: Identifiable {
