@@ -12,6 +12,7 @@ enum SnapshotController {
         var scale: CGFloat = 1.0
         var aiTicks: UInt32 = 10
         var battleIndex: UInt32 = 1
+        var requireBundledRuntime = false
     }
 
     @MainActor
@@ -82,6 +83,9 @@ enum SnapshotController {
             case "--snapshot-battle":
                 request.battleIndex = try uint32Value(after: argument, in: arguments, at: index)
                 index += 2
+            case MosulApp.requireBundledRuntimeArgument:
+                request.requireBundledRuntime = true
+                index += 1
             default:
                 index += 1
             }
@@ -97,6 +101,15 @@ enum SnapshotController {
     @MainActor
     static func saveEvidenceSnapshot(request: EvidenceRequest) throws -> URL {
         let model = MosulGameModel()
+
+        if !model.lastError.isEmpty {
+            throw SnapshotError.runtimeLoadFailed(model.lastError)
+        }
+
+        if request.requireBundledRuntime && model.runtimeResources.source != .bundledApp {
+            throw SnapshotError.runtimeSourceMismatch(model.runtimeResources.source.description)
+        }
+
         model.reset(battleIndex: request.battleIndex)
 
         if model.selectedUnit == nil,
@@ -155,6 +168,8 @@ enum SnapshotController {
 enum SnapshotError: LocalizedError {
     case renderFailed
     case pngEncodingFailed
+    case runtimeLoadFailed(String)
+    case runtimeSourceMismatch(String)
     case invalidEvidenceArgument(String)
 
     var errorDescription: String? {
@@ -163,6 +178,10 @@ enum SnapshotError: LocalizedError {
             return "Could not render the Mosul tactical map."
         case .pngEncodingFailed:
             return "Could not encode the Mosul tactical map as PNG."
+        case .runtimeLoadFailed(let message):
+            return message
+        case .runtimeSourceMismatch(let source):
+            return "Expected bundled runtime resources, but loaded \(source)."
         case .invalidEvidenceArgument(let message):
             return message
         }

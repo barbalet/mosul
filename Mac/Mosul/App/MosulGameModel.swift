@@ -241,7 +241,7 @@ enum MosulPlayableSide: Int32, CaseIterable, Identifiable {
 }
 
 struct MosulRuntimeResources {
-    enum Source {
+    enum Source: Equatable {
         case bundledApp
         case sourceCheckout
 

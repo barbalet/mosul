@@ -12,6 +12,7 @@ SCALE=1
 AI_TICKS=10
 BATTLE_INDEX=1
 SKIP_BUILD=0
+TIMEOUT_SECONDS="${SNAPSHOT_TIMEOUT_SECONDS:-60}"
 
 usage() {
   cat <<'USAGE'
@@ -31,6 +32,7 @@ Options:
   --derived-data-root PATH  Build output root. Defaults to build/snapshot-evidence.
   --destination VALUE       Xcode destination. Defaults to platform=macOS.
   --skip-build              Reuse an existing MosulGame app under the derived-data root.
+  --timeout SECONDS         Fail if snapshot capture does not exit in time. Defaults to 60.
   -h, --help                Show this help.
 USAGE
 }
@@ -113,6 +115,14 @@ while [[ $# -gt 0 ]]; do
       SKIP_BUILD=1
       shift
       ;;
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --timeout requires a value" >&2
+        exit 2
+      fi
+      TIMEOUT_SECONDS="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -129,6 +139,17 @@ if [[ "$OUTPUT_PATH" != /* ]]; then
   OUTPUT_PATH="$ROOT_DIR/$OUTPUT_PATH"
 fi
 
+case "$TIMEOUT_SECONDS" in
+  ''|*[!0-9]*)
+    echo "error: --timeout requires a positive integer" >&2
+    exit 2
+    ;;
+  0)
+    echo "error: --timeout requires a positive integer" >&2
+    exit 2
+    ;;
+esac
+
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
   "$ROOT_DIR/scripts/run_mac_smoke.sh" \
     --skip-aibattle \
@@ -137,17 +158,75 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
     --destination "$DESTINATION"
 fi
 
-EXECUTABLE_PATH="$DERIVED_DATA_ROOT/MosulGameDerivedData/Build/Products/$CONFIGURATION/MosulGame.app/Contents/MacOS/MosulGame"
+APP_PATH="$DERIVED_DATA_ROOT/MosulGameDerivedData/Build/Products/$CONFIGURATION/MosulGame.app"
+EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/MosulGame"
 
 if [[ ! -x "$EXECUTABLE_PATH" ]]; then
   echo "error: expected MosulGame executable was not found: $EXECUTABLE_PATH" >&2
   exit 1
 fi
 
-mkdir -p "$(dirname "$OUTPUT_PATH")"
+if ! command -v open >/dev/null 2>&1; then
+  echo "error: open is required for snapshot evidence capture" >&2
+  exit 1
+fi
 
-"$EXECUTABLE_PATH" \
+mkdir -p "$(dirname "$OUTPUT_PATH")"
+rm -f "$OUTPUT_PATH"
+
+python3 "$ROOT_DIR/scripts/check_mosulgame_runtime_resources.py" --app "$APP_PATH"
+
+terminate_snapshot_app() {
+  local escaped_app_path
+  local pids
+
+  escaped_app_path="$(printf '%s\n' "$APP_PATH/Contents/MacOS/MosulGame" | sed 's/[][\.*^$()+?{}|/]/\\&/g')"
+  pids="$(pgrep -f "$escaped_app_path" || true)"
+  if [[ -n "$pids" ]]; then
+    echo "$pids" | xargs kill -TERM 2>/dev/null || true
+    sleep 2
+    pids="$(pgrep -f "$escaped_app_path" || true)"
+    if [[ -n "$pids" ]]; then
+      echo "$pids" | xargs kill -KILL 2>/dev/null || true
+    fi
+  fi
+}
+
+run_with_watchdog() {
+  local timeout_seconds="$1"
+  shift
+  local command_pid
+  local watchdog_pid
+  local status
+
+  "$@" &
+  command_pid=$!
+
+  (
+    sleep "$timeout_seconds"
+    if kill -0 "$command_pid" 2>/dev/null; then
+      echo "error: snapshot evidence timed out after ${timeout_seconds}s" >&2
+      kill -TERM "$command_pid" 2>/dev/null || true
+      terminate_snapshot_app
+    fi
+  ) &
+  watchdog_pid=$!
+
+  if wait "$command_pid"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  kill "$watchdog_pid" 2>/dev/null || true
+  wait "$watchdog_pid" 2>/dev/null || true
+  return "$status"
+}
+
+run_with_watchdog "$TIMEOUT_SECONDS" \
+  open -W -n "$APP_PATH" --args \
   --snapshot-evidence \
+  --require-bundled-runtime \
   --snapshot-output "$OUTPUT_PATH" \
   --snapshot-width "$WIDTH" \
   --snapshot-height "$HEIGHT" \

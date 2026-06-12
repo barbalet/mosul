@@ -4,12 +4,16 @@ import SwiftUI
 @main
 struct MosulApp: App {
     private static let runtimeCheckArgument = "--check-runtime-resources"
+    private static let runtimeCheckOutputArgument = "--runtime-check-output"
+    static let requireBundledRuntimeArgument = "--require-bundled-runtime"
 
     private let evidenceRequest: SnapshotController.EvidenceRequest?
     private let runtimeCheckRequested: Bool
 
     init() {
         runtimeCheckRequested = CommandLine.arguments.contains(Self.runtimeCheckArgument)
+        let requireBundledRuntime = CommandLine.arguments.contains(Self.requireBundledRuntimeArgument)
+        let runtimeCheckOutputURL = Self.runtimeCheckOutputURL()
 
         do {
             evidenceRequest = try SnapshotController.evidenceRequest()
@@ -34,7 +38,11 @@ struct MosulApp: App {
         if runtimeCheckRequested {
             Task { @MainActor in
                 do {
-                    print(try Self.runtimeResourceCheckSummary())
+                    let summary = try Self.runtimeResourceCheckSummary(requireBundledRuntime: requireBundledRuntime)
+                    if let runtimeCheckOutputURL {
+                        try summary.write(to: runtimeCheckOutputURL, atomically: true, encoding: .utf8)
+                    }
+                    print(summary)
                     exit(EXIT_SUCCESS)
                 } catch {
                     fputs("runtime-check: \(error.localizedDescription)\n", stderr)
@@ -57,13 +65,30 @@ struct MosulApp: App {
         .windowStyle(.titleBar)
     }
 
+    private static func runtimeCheckOutputURL(arguments: [String] = CommandLine.arguments) -> URL? {
+        guard let argumentIndex = arguments.firstIndex(of: runtimeCheckOutputArgument) else {
+            return nil
+        }
+
+        let valueIndex = argumentIndex + 1
+        guard valueIndex < arguments.count else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: arguments[valueIndex])
+    }
+
     @MainActor
-    private static func runtimeResourceCheckSummary() throws -> String {
+    private static func runtimeResourceCheckSummary(requireBundledRuntime: Bool) throws -> String {
         let model = MosulGameModel()
         let fileManager = FileManager.default
 
         if !model.lastError.isEmpty {
             throw RuntimeResourceCheckError.engine(model.lastError)
+        }
+
+        if requireBundledRuntime && model.runtimeResources.source != .bundledApp {
+            throw RuntimeResourceCheckError.notBundled(model.runtimeResources.source.description)
         }
 
         guard fileManager.fileExists(atPath: model.mapOverviewPath) else {
@@ -89,6 +114,7 @@ struct MosulApp: App {
 
 enum RuntimeResourceCheckError: LocalizedError {
     case engine(String)
+    case notBundled(String)
     case missingFile(String)
     case missingMapLevel
     case missingUnitSprite
@@ -97,6 +123,8 @@ enum RuntimeResourceCheckError: LocalizedError {
         switch self {
         case .engine(let message):
             return message
+        case .notBundled(let source):
+            return "Expected bundled runtime resources, but loaded \(source)."
         case .missingFile(let path):
             return "Missing runtime file: \(path)"
         case .missingMapLevel:

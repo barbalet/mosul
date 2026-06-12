@@ -6,6 +6,15 @@ CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA_ROOT="${DERIVED_DATA_ROOT:-$ROOT_DIR/build/mac-smoke}"
 DESTINATION="${DESTINATION:-platform=macOS}"
 SKIP_AIBATTLE=0
+SKIP_OUTSIDE_REPO_LAUNCH=0
+TEMP_ROOT=""
+
+cleanup() {
+  if [[ -n "$TEMP_ROOT" && -d "$TEMP_ROOT" ]]; then
+    rm -rf "$TEMP_ROOT"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
@@ -20,6 +29,7 @@ Options:
   --derived-data-root PATH  Build output root. Defaults to build/mac-smoke.
   --destination VALUE       Xcode destination. Defaults to platform=macOS.
   --skip-aibattle           Build only the player-facing Mosul app.
+  --skip-outside-launch     Skip copying and launching MosulGame outside the checkout.
   -h, --help                Show this help.
 USAGE
 }
@@ -52,6 +62,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-aibattle)
       SKIP_AIBATTLE=1
+      shift
+      ;;
+    --skip-outside-launch)
+      SKIP_OUTSIDE_REPO_LAUNCH=1
       shift
       ;;
     -h|--help)
@@ -108,9 +122,53 @@ build_app() {
 
   if [[ "$product" == "MosulGame" ]]; then
     python3 "$ROOT_DIR/scripts/check_mosulgame_runtime_resources.py" --app "$app_path"
+
+    if [[ "$SKIP_OUTSIDE_REPO_LAUNCH" -eq 0 ]]; then
+      smoke_mosulgame_outside_repo "$app_path"
+    fi
   fi
 
   echo "ok: $product app bundle built at $app_path"
+}
+
+smoke_mosulgame_outside_repo() {
+  local app_path="$1"
+  local copied_app_path
+  local runtime_check_output
+
+  if ! command -v open >/dev/null 2>&1; then
+    echo "error: open is required for the outside-repo MosulGame launch smoke" >&2
+    exit 1
+  fi
+
+  if [[ -z "$TEMP_ROOT" ]]; then
+    TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mosulgame-smoke.XXXXXX")"
+  fi
+
+  copied_app_path="$TEMP_ROOT/MosulGame.app"
+  ditto "$app_path" "$copied_app_path"
+
+  python3 "$ROOT_DIR/scripts/check_mosulgame_runtime_resources.py" --app "$copied_app_path"
+  runtime_check_output="$TEMP_ROOT/runtime-check.txt"
+  rm -f "$runtime_check_output"
+
+  open -W -n "$copied_app_path" --args \
+    --check-runtime-resources \
+    --require-bundled-runtime \
+    --runtime-check-output "$runtime_check_output"
+
+  if [[ ! -s "$runtime_check_output" ]]; then
+    echo "error: copied MosulGame app did not write runtime-check output" >&2
+    exit 1
+  fi
+
+  if ! grep -q "bundled app resources" "$runtime_check_output"; then
+    echo "error: copied MosulGame app did not load bundled runtime resources" >&2
+    cat "$runtime_check_output" >&2
+    exit 1
+  fi
+
+  echo "ok: MosulGame copied app launched with bundled runtime at $copied_app_path"
 }
 
 mkdir -p "$DERIVED_DATA_ROOT"

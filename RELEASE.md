@@ -31,7 +31,7 @@ and executable named `MosulGame`. Public-facing copy and DMG volume names use
   the app checks bundled `mosul-runtime` resources first and falls back to the
   source checkout for development.
 - App-bundle runtime check:
-  `open -W -n <path-to-MosulGame.app> --args --check-runtime-resources`
+  `open -W -n <path-to-MosulGame.app> --args --check-runtime-resources --require-bundled-runtime --runtime-check-output <path-to-runtime-check.txt>`
 
 ## 1. Prepare the Version
 
