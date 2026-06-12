@@ -182,7 +182,7 @@ typedef struct {
     char narrative[MOSUL_BRIDGE_TEXT_CAPACITY];
 } MosulAfterActionSummary;
 
-MosulEngine *MosulEngineCreate(const char *moderner_krieg_root);
+MosulEngine *MosulEngineCreate(const char *runtime_asset_root);
 void MosulEngineDestroy(MosulEngine *engine);
 
 bool MosulEngineReset(MosulEngine *engine);

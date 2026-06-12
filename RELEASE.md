@@ -21,6 +21,8 @@ and executable named `MosulGame`. Public-facing copy and DMG volume names use
   `release/mosulgame_runtime_resources.json`
 - Runtime payload validation:
   `python3 scripts/check_mosulgame_runtime_resources.py`
+- Built app payload validation:
+  `python3 scripts/check_mosulgame_runtime_resources.py --app <path-to-MosulGame.app>`
 - Build-time runtime payload copy:
   `scripts/copy_mosulgame_runtime_resources.py` copies the curated payload into
   `Contents/Resources/mosul-runtime/modernerKrieg` during `MosulGame` app

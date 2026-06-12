@@ -18,29 +18,14 @@ if str(SCRIPT_DIR) not in sys.path:
 from check_mosulgame_runtime_resources import (  # noqa: E402
     INVENTORY_PATH,
     ROOT,
-    collect_resources,
+    bundled_runtime_relative_paths,
 )
-
-
-def is_under(relative_path: str, directory: str) -> bool:
-    normalized = directory.rstrip("/")
-    return relative_path == normalized or relative_path.startswith(f"{normalized}/")
 
 
 def bundled_runtime_files(inventory: dict[str, object]) -> list[Path]:
     errors: list[str] = []
-    required = collect_resources(inventory, errors)
-    excluded = list(inventory["excluded_from_standalone_bundle"])
-    bundled: list[Path] = []
-
-    for path in sorted(required):
-        relative_path = path.relative_to(ROOT).as_posix()
-        if not relative_path.startswith("modernerKrieg/"):
-            continue
-        if any(is_under(relative_path, directory) for directory in excluded):
-            errors.append(f"runtime payload includes excluded source-only path: {relative_path}")
-            continue
-        bundled.append(path)
+    relative_paths = sorted(bundled_runtime_relative_paths(inventory, errors))
+    bundled = [ROOT / relative_path for relative_path in relative_paths]
 
     missing = [path for path in bundled if not path.exists()]
     for path in missing:

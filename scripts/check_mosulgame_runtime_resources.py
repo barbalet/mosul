@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -39,6 +40,11 @@ def add_required(required: set[Path], relative_path: str) -> None:
 
 def add_moderner_krieg_required(required: set[Path], relative_path: str) -> None:
     required.add(moderner_krieg_path(relative_path))
+
+
+def is_under(relative_path: str, directory: str) -> bool:
+    normalized = directory.rstrip("/")
+    return relative_path == normalized or relative_path.startswith(f"{normalized}/")
 
 
 def validate_release_scope(scope: dict[str, object], errors: list[str]) -> None:
@@ -146,10 +152,24 @@ def collect_resources(inventory: dict[str, object], errors: list[str]) -> set[Pa
     return required
 
 
-def main() -> int:
-    errors: list[str] = []
-    inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
+def bundled_runtime_relative_paths(inventory: dict[str, object], errors: list[str]) -> set[str]:
+    required = collect_resources(inventory, errors)
+    excluded = list(inventory["excluded_from_standalone_bundle"])
+    bundled: set[str] = set()
 
+    for path in required:
+        relative_path = path.relative_to(ROOT).as_posix()
+        if not relative_path.startswith("modernerKrieg/"):
+            continue
+        if any(is_under(relative_path, directory) for directory in excluded):
+            errors.append(f"runtime payload includes excluded source-only path: {relative_path}")
+            continue
+        bundled.add(relative_path)
+
+    return bundled
+
+
+def validate_source_inventory(inventory: dict[str, object], errors: list[str]) -> int:
     validate_release_scope(inventory["release_scope"], errors)
     required = collect_resources(inventory, errors)
 
@@ -162,13 +182,77 @@ def main() -> int:
     for path in missing:
         errors.append(f"missing file: {path.relative_to(ROOT)}")
 
+    return len(required)
+
+
+def validate_app_bundle(app_path: Path, inventory: dict[str, object], errors: list[str]) -> int:
+    scope = inventory["release_scope"]
+    runtime_root = app_path / scope["runtime_bundle_root"]
+    bundled = bundled_runtime_relative_paths(inventory, errors)
+
+    if not app_path.is_dir():
+        errors.append(f"missing app bundle: {app_path}")
+        return 0
+
+    if app_path.name != scope["app_bundle"]:
+        errors.append(f"app bundle name mismatch: expected {scope['app_bundle']}, found {app_path.name}")
+
+    executable = app_path / "Contents" / "MacOS" / scope["executable"]
+    if not executable.is_file():
+        errors.append(f"missing app executable: {executable}")
+
+    if not runtime_root.is_dir():
+        errors.append(f"missing app runtime root: {runtime_root}")
+        return len(bundled)
+
+    stamp = runtime_root / ".mosul-runtime-resources.stamp"
+    if not stamp.is_file():
+        errors.append(f"missing runtime resource stamp: {stamp}")
+
+    missing = [relative_path for relative_path in sorted(bundled) if not (runtime_root / relative_path).is_file()]
+    for relative_path in missing:
+        errors.append(f"missing bundled runtime file: {relative_path}")
+
+    for relative_path in inventory["required_directories"]:
+        if relative_path.startswith("modernerKrieg/") and not (runtime_root / relative_path).is_dir():
+            errors.append(f"missing bundled runtime directory: {relative_path}")
+
+    for excluded in inventory["excluded_from_standalone_bundle"]:
+        if excluded.startswith("modernerKrieg/") and (runtime_root / excluded).exists():
+            errors.append(f"bundled runtime includes excluded path: {excluded}")
+
+    return len(bundled)
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Validate MosulGame runtime resources.")
+    parser.add_argument(
+        "--app",
+        metavar="PATH",
+        type=Path,
+        help="validate a built MosulGame.app bundle in addition to the source inventory",
+    )
+    return parser.parse_args(argv)
+
+
+def main() -> int:
+    args = parse_args(sys.argv[1:])
+    errors: list[str] = []
+    inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
+
+    source_count = validate_source_inventory(inventory, errors)
+    app_count = validate_app_bundle(args.app, inventory, errors) if args.app is not None else 0
+
     if errors:
         print("MosulGame runtime resource inventory failed:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print(f"MosulGame runtime resource inventory ok: {len(required)} files checked")
+    if args.app is not None:
+        print(f"MosulGame app runtime resources ok: {app_count} bundled files checked in {args.app}")
+    else:
+        print(f"MosulGame runtime resource inventory ok: {source_count} files checked")
     return 0
 
 

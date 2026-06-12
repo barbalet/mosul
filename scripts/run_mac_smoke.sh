@@ -11,8 +11,9 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/run_mac_smoke.sh [options]
 
-Builds the native MOSUL Mac app bundles through Xcode and verifies that the
-expected MosulGame and AIBattle app executables were produced.
+Builds the native MOSUL Mac app bundles through Xcode, verifies that the
+expected MosulGame and AIBattle app executables were produced, and checks the
+MosulGame bundled runtime payload.
 
 Options:
   --configuration NAME      Xcode configuration to build. Defaults to Debug.
@@ -103,6 +104,10 @@ build_app() {
   if [[ ! -f "$info_plist_path" ]]; then
     echo "error: expected app Info.plist was not produced: $info_plist_path" >&2
     exit 1
+  fi
+
+  if [[ "$product" == "MosulGame" ]]; then
+    python3 "$ROOT_DIR/scripts/check_mosulgame_runtime_resources.py" --app "$app_path"
   fi
 
   echo "ok: $product app bundle built at $app_path"

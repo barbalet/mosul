@@ -15,7 +15,7 @@ final class MosulSpriteManifest {
     private let fileManager = FileManager.default
 
     static func shared(for runtimeResources: MosulRuntimeResources) -> MosulSpriteManifest {
-        let cacheKey = runtimeResources.modernerKriegRoot
+        let cacheKey = runtimeResources.runtimeAssetRoot
         if let cached = cache[cacheKey] {
             return cached
         }
@@ -26,7 +26,7 @@ final class MosulSpriteManifest {
     }
 
     private init(runtimeResources: MosulRuntimeResources) {
-        rootURL = runtimeResources.modernerKriegRootURL
+        rootURL = runtimeResources.runtimeAssetRootURL
 
         let manifestURL = rootURL
             .appendingPathComponent("assets/mosul/runtime/sprites/manifest.json")

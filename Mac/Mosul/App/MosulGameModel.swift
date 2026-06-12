@@ -260,11 +260,11 @@ struct MosulRuntimeResources {
     private static let markerManifestPath = "assets/mosul/manifests/mosul_2003_markers.markermanifest"
     private static let spriteRuntimeManifestPath = "assets/mosul/runtime/sprites/manifest.json"
 
-    let modernerKriegRootURL: URL
+    let runtimeAssetRootURL: URL
     let source: Source
 
-    var modernerKriegRoot: String {
-        modernerKriegRootURL.path
+    var runtimeAssetRoot: String {
+        runtimeAssetRootURL.path
     }
 
     static func resolve(
@@ -273,11 +273,11 @@ struct MosulRuntimeResources {
         fileManager: FileManager = .default
     ) -> MosulRuntimeResources {
         if let bundledRoot = bundledModernerKriegRoot(bundle: bundle, fileManager: fileManager) {
-            return MosulRuntimeResources(modernerKriegRootURL: bundledRoot, source: .bundledApp)
+            return MosulRuntimeResources(runtimeAssetRootURL: bundledRoot, source: .bundledApp)
         }
 
         return MosulRuntimeResources(
-            modernerKriegRootURL: sourceCheckoutModernerKriegRoot(filePath: filePath, fileManager: fileManager),
+            runtimeAssetRootURL: sourceCheckoutModernerKriegRoot(filePath: filePath, fileManager: fileManager),
             source: .sourceCheckout
         )
     }
@@ -352,18 +352,18 @@ final class MosulGameModel: ObservableObject {
     private var mapLevelVisibilityInitialized = false
     private var battleIndex: UInt32 = 1
     let runtimeResources: MosulRuntimeResources
-    let modernerKriegRoot: String
+    let runtimeAssetRoot: String
 
     var mosulRoot: String {
-        URL(fileURLWithPath: modernerKriegRoot)
+        URL(fileURLWithPath: runtimeAssetRoot)
             .deletingLastPathComponent()
             .path
     }
 
     init() {
         runtimeResources = MosulRuntimeResources.resolve()
-        modernerKriegRoot = runtimeResources.modernerKriegRoot
-        engine = modernerKriegRoot.withCString { root in
+        runtimeAssetRoot = runtimeResources.runtimeAssetRoot
+        engine = runtimeAssetRoot.withCString { root in
             MosulEngineCreate(root)
         }
         refresh()
@@ -636,7 +636,7 @@ final class MosulGameModel: ObservableObject {
 
     func refresh() {
         guard let engine else {
-            lastError = "Unable to create Mosul engine from \(runtimeResources.source.description) at \(modernerKriegRoot)."
+            lastError = "Unable to create Mosul engine from \(runtimeResources.source.description) at \(runtimeAssetRoot)."
             return
         }
 

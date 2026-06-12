@@ -19,9 +19,11 @@
 #define MOSUL_BRIDGE_INTERACTION_KIND_ROOFTOP 4
 #define MOSUL_BRIDGE_INTERACTION_KIND_DANGER 5
 #define MOSUL_BRIDGE_INTERACTION_KIND_CIVILIAN_SHELTER 6
+#define MOSUL_BRIDGE_DEFAULT_MAP_MANIFEST_PATH "assets/mosul/manifests/market_commercial_streets_2003.mapmanifest"
+#define MOSUL_BRIDGE_DEFAULT_MARKER_MANIFEST_PATH "assets/mosul/manifests/mosul_2003_markers.markermanifest"
 
 struct MosulEngine {
-    char project_root[MOSUL_BRIDGE_PATH_CAPACITY];
+    char runtime_asset_root[MOSUL_BRIDGE_PATH_CAPACITY];
     char scenario_path[MOSUL_BRIDGE_PATH_CAPACITY];
     char map_manifest_path[MOSUL_BRIDGE_PATH_CAPACITY];
     char marker_manifest_path[MOSUL_BRIDGE_PATH_CAPACITY];
@@ -91,6 +93,35 @@ static void mosul_bridge_set_error(MosulEngine *engine, const char *message) {
     }
 }
 
+static bool mosul_bridge_runtime_file_exists(MosulEngine *engine, const char *relative_path, const char *label) {
+    char path[MOSUL_BRIDGE_PATH_CAPACITY];
+    char message[MOSUL_BRIDGE_TEXT_CAPACITY];
+
+    if (engine == NULL || relative_path == NULL || label == NULL) {
+        return false;
+    }
+
+    if (!mosul_bridge_join_path(path, sizeof(path), engine->runtime_asset_root, relative_path)) {
+        snprintf(message, sizeof(message), "Could not build runtime path for %s.", label);
+        mosul_bridge_set_error(engine, message);
+        return false;
+    }
+
+    if (!mosul_bridge_file_exists(path)) {
+        snprintf(message, sizeof(message), "Runtime asset root is missing %s.", label);
+        mosul_bridge_set_error(engine, message);
+        return false;
+    }
+
+    return true;
+}
+
+static bool mosul_bridge_validate_runtime_asset_root(MosulEngine *engine) {
+    return mosul_bridge_runtime_file_exists(engine, MK_MOSUL_DEFAULT_SCENARIO_PATH, "the default scenario")
+        && mosul_bridge_runtime_file_exists(engine, MOSUL_BRIDGE_DEFAULT_MAP_MANIFEST_PATH, "the map manifest")
+        && mosul_bridge_runtime_file_exists(engine, MOSUL_BRIDGE_DEFAULT_MARKER_MANIFEST_PATH, "the marker manifest");
+}
+
 static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
     mk_result_t result;
 
@@ -101,13 +132,13 @@ static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
     if (!mosul_bridge_join_path(
             engine->map_manifest_path,
             sizeof(engine->map_manifest_path),
-            engine->project_root,
-            "assets/mosul/manifests/market_commercial_streets_2003.mapmanifest")) {
+            engine->runtime_asset_root,
+            MOSUL_BRIDGE_DEFAULT_MAP_MANIFEST_PATH)) {
         mosul_bridge_set_error(engine, "Could not build map manifest path.");
         return false;
     }
 
-    result = mk_asset_load_map_manifest(engine->map_manifest_path, engine->project_root, &engine->map_manifest);
+    result = mk_asset_load_map_manifest(engine->map_manifest_path, engine->runtime_asset_root, &engine->map_manifest);
     if (result != MK_OK) {
         mosul_bridge_set_error(engine, "Could not load Market / Commercial Streets map manifest.");
         return false;
@@ -117,7 +148,7 @@ static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
     if (!mosul_bridge_join_path(
             engine->map_overview_path,
             sizeof(engine->map_overview_path),
-            engine->project_root,
+            engine->runtime_asset_root,
             engine->map_manifest.runtime_overview_path)) {
         mosul_bridge_set_error(engine, "Could not build runtime map overview path.");
         return false;
@@ -127,9 +158,9 @@ static bool mosul_bridge_load_map_manifest(MosulEngine *engine) {
         && !mosul_bridge_join_path(
             engine->map_overview_path,
             sizeof(engine->map_overview_path),
-            engine->project_root,
+            engine->runtime_asset_root,
             engine->map_manifest.overview_path)) {
-        mosul_bridge_set_error(engine, "Could not build source map overview path.");
+        mosul_bridge_set_error(engine, "Could not build fallback map overview path.");
         return false;
     }
 
@@ -146,8 +177,8 @@ static bool mosul_bridge_load_marker_manifest(MosulEngine *engine) {
     if (!mosul_bridge_join_path(
             engine->marker_manifest_path,
             sizeof(engine->marker_manifest_path),
-            engine->project_root,
-            "assets/mosul/manifests/mosul_2003_markers.markermanifest")) {
+            engine->runtime_asset_root,
+            MOSUL_BRIDGE_DEFAULT_MARKER_MANIFEST_PATH)) {
         mosul_bridge_set_error(engine, "Could not build marker manifest path.");
         return false;
     }
@@ -175,13 +206,13 @@ static bool mosul_bridge_load_game(MosulEngine *engine, uint32_t battle_index) {
     if (!mosul_bridge_join_path(
             engine->scenario_path,
             sizeof(engine->scenario_path),
-            engine->project_root,
+            engine->runtime_asset_root,
             MK_MOSUL_DEFAULT_SCENARIO_PATH)) {
         mosul_bridge_set_error(engine, "Could not build scenario path.");
         return false;
     }
 
-    result = mk_mosul_load_scenario_file(engine->scenario_path, engine->project_root, &engine->scenario);
+    result = mk_mosul_load_scenario_file(engine->scenario_path, engine->runtime_asset_root, &engine->scenario);
     if (result != MK_OK) {
         mosul_bridge_set_error(engine, "Could not load 2003 Market / Commercial Streets scenario data.");
         return false;
@@ -199,10 +230,10 @@ static bool mosul_bridge_load_game(MosulEngine *engine, uint32_t battle_index) {
     return true;
 }
 
-MosulEngine *MosulEngineCreate(const char *moderner_krieg_root) {
+MosulEngine *MosulEngineCreate(const char *runtime_asset_root) {
     MosulEngine *engine;
 
-    if (moderner_krieg_root == NULL || moderner_krieg_root[0] == '\0') {
+    if (runtime_asset_root == NULL || runtime_asset_root[0] == '\0') {
         return NULL;
     }
 
@@ -211,9 +242,10 @@ MosulEngine *MosulEngineCreate(const char *moderner_krieg_root) {
         return NULL;
     }
 
-    mosul_bridge_copy_text(engine->project_root, sizeof(engine->project_root), moderner_krieg_root);
+    mosul_bridge_copy_text(engine->runtime_asset_root, sizeof(engine->runtime_asset_root), runtime_asset_root);
 
-    if (!mosul_bridge_load_map_manifest(engine)
+    if (!mosul_bridge_validate_runtime_asset_root(engine)
+        || !mosul_bridge_load_map_manifest(engine)
         || !mosul_bridge_load_marker_manifest(engine)
         || !mosul_bridge_load_game(engine, 1U)) {
         return engine;
@@ -918,7 +950,7 @@ size_t MosulEngineCopyMapLevels(const MosulEngine *engine, MosulMapLevelSummary 
         if (!mosul_bridge_join_path(
                 summary->image_path,
                 sizeof(summary->image_path),
-                engine->project_root,
+                engine->runtime_asset_root,
                 level->image_path)) {
             mosul_bridge_copy_text(summary->image_path, sizeof(summary->image_path), "");
         }
