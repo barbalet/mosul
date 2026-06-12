@@ -1,6 +1,6 @@
 # MOSUL Release Procedure
 
-This checklist describes the release flow for MOSUL when shipping the native macOS SwiftUI application built from `Mosul.xcodeproj`. It creates Apple Silicon and Intel DMG packages, plus a source archive for the exact tagged Mosul source and the linked `modernerKrieg` submodule source used to build those artifacts.
+This checklist describes the release flow for MOSUL when shipping the native macOS SwiftUI application built from `MosulGame.xcodeproj`. It creates Apple Silicon and Intel DMG packages, plus a source archive for the exact tagged Mosul source and the linked `modernerKrieg` submodule source used to build those artifacts.
 
 Before starting, decide the new release number and use it as the `VERSION` input throughout this checklist. Set `VERSION` without a leading `v`; the Git tag adds the leading `v` separately. For example, the current Mosul app version `0.1` uses `VERSION=0.1` and tag `v0.1`.
 
@@ -13,14 +13,14 @@ shortVersion
 build
 ```
 
-Update the Xcode target build settings in `Mosul.xcodeproj/project.pbxproj` for both Debug and Release:
+Update the Xcode target build settings in `MosulGame.xcodeproj/project.pbxproj` for both Debug and Release:
 
 ```text
 MARKETING_VERSION = <VERSION>;
 CURRENT_PROJECT_VERSION = <BUILD>;
 ```
 
-Use the same `VERSION` value in artifact names without the leading `v`. The Xcode target, scheme, app bundle, and executable are all named `Mosul`.
+Use the same `VERSION` value in artifact names without the leading `v`. The Xcode target, scheme, app bundle, and executable are all named `MosulGame`.
 
 `modernerKrieg` does not drive Mosul release numbering yet. For now, capture its exact linked submodule commit in the Mosul release by committing the desired gitlink and packaging the initialized submodule source into `dist/mosul-src-<VERSION>.zip`.
 
@@ -62,8 +62,8 @@ From the repository root:
 mkdir -p dist
 VERSION="<VERSION>"
 xcodebuild \
-  -project Mosul.xcodeproj \
-  -scheme Mosul \
+  -project MosulGame.xcodeproj \
+  -scheme MosulGame \
   -configuration Release \
   -destination "generic/platform=macOS" \
   -derivedDataPath build/release-derived-data-arm64 \
@@ -76,23 +76,23 @@ xcodebuild \
 The unsigned build output is:
 
 ```text
-build/release-derived-data-arm64/Build/Products/Release/Mosul.app
+build/release-derived-data-arm64/Build/Products/Release/MosulGame.app
 ```
 
 Ad-hoc sign the generated app if Developer ID signing is not available:
 
 ```bash
-codesign --force --deep --sign - "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
+codesign --force --deep --sign - "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app"
 ```
 
 If you have Developer ID and notarization credentials, sign and notarize instead of ad-hoc signing:
 
 ```bash
 VERSION="<VERSION>"
-codesign --force --deep --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
-ditto -c -k --keepParent "build/release-derived-data-arm64/Build/Products/Release/Mosul.app" "dist/mosul-mac-silicon-${VERSION}-notary.zip"
+codesign --force --deep --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app"
+ditto -c -k --keepParent "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app" "dist/mosul-mac-silicon-${VERSION}-notary.zip"
 xcrun notarytool submit "dist/mosul-mac-silicon-${VERSION}-notary.zip" --keychain-profile "$NOTARY_PROFILE" --wait
-xcrun stapler staple "build/release-derived-data-arm64/Build/Products/Release/Mosul.app"
+xcrun stapler staple "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app"
 ```
 
 Package the DMG:
@@ -101,7 +101,7 @@ Package the DMG:
 VERSION="<VERSION>"
 hdiutil create \
   -volname "MOSUL ${VERSION} Apple Silicon" \
-  -srcfolder "build/release-derived-data-arm64/Build/Products/Release/Mosul.app" \
+  -srcfolder "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app" \
   -format UDZO \
   -ov \
   "dist/mosul-mac-silicon-${VERSION}.dmg"
@@ -110,7 +110,7 @@ hdiutil create \
 Verify the architecture:
 
 ```bash
-lipo -info "build/release-derived-data-arm64/Build/Products/Release/Mosul.app/Contents/MacOS/Mosul"
+lipo -info "build/release-derived-data-arm64/Build/Products/Release/MosulGame.app/Contents/MacOS/MosulGame"
 ```
 
 ## 5. Build Intel
@@ -118,8 +118,8 @@ lipo -info "build/release-derived-data-arm64/Build/Products/Release/Mosul.app/Co
 ```bash
 VERSION="<VERSION>"
 xcodebuild \
-  -project Mosul.xcodeproj \
-  -scheme Mosul \
+  -project MosulGame.xcodeproj \
+  -scheme MosulGame \
   -configuration Release \
   -destination "generic/platform=macOS" \
   -derivedDataPath build/release-derived-data-x86_64 \
@@ -132,13 +132,13 @@ xcodebuild \
 The unsigned build output is:
 
 ```text
-build/release-derived-data-x86_64/Build/Products/Release/Mosul.app
+build/release-derived-data-x86_64/Build/Products/Release/MosulGame.app
 ```
 
 Ad-hoc sign the generated app if Developer ID signing is not available:
 
 ```bash
-codesign --force --deep --sign - "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app"
+codesign --force --deep --sign - "build/release-derived-data-x86_64/Build/Products/Release/MosulGame.app"
 ```
 
 If you have Developer ID and notarization credentials, use the same signing, notary submission, and stapling flow described in the Apple Silicon section, with the x86_64 app path and an Intel-specific notary zip name.
@@ -149,7 +149,7 @@ Package the DMG:
 VERSION="<VERSION>"
 hdiutil create \
   -volname "MOSUL ${VERSION} Intel" \
-  -srcfolder "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app" \
+  -srcfolder "build/release-derived-data-x86_64/Build/Products/Release/MosulGame.app" \
   -format UDZO \
   -ov \
   "dist/mosul-mac-intel-${VERSION}.dmg"
@@ -158,7 +158,7 @@ hdiutil create \
 Verify the architecture:
 
 ```bash
-lipo -info "build/release-derived-data-x86_64/Build/Products/Release/Mosul.app/Contents/MacOS/Mosul"
+lipo -info "build/release-derived-data-x86_64/Build/Products/Release/MosulGame.app/Contents/MacOS/MosulGame"
 ```
 
 ## 6. Create The Source Package

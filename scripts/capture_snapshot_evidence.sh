@@ -17,7 +17,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/capture_snapshot_evidence.sh [options]
 
-Builds the Mosul Mac app, runs its command-line snapshot evidence mode, and
+Builds the MosulGame Mac app, runs its command-line snapshot evidence mode, and
 verifies that a PNG was produced for visual comparison.
 
 Options:
@@ -30,7 +30,7 @@ Options:
   --configuration NAME      Xcode configuration. Defaults to Debug.
   --derived-data-root PATH  Build output root. Defaults to build/snapshot-evidence.
   --destination VALUE       Xcode destination. Defaults to platform=macOS.
-  --skip-build              Reuse an existing Mosul app under the derived-data root.
+  --skip-build              Reuse an existing MosulGame app under the derived-data root.
   -h, --help                Show this help.
 USAGE
 }
@@ -137,10 +137,10 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
     --destination "$DESTINATION"
 fi
 
-EXECUTABLE_PATH="$DERIVED_DATA_ROOT/MosulDerivedData/Build/Products/$CONFIGURATION/Mosul.app/Contents/MacOS/Mosul"
+EXECUTABLE_PATH="$DERIVED_DATA_ROOT/MosulGameDerivedData/Build/Products/$CONFIGURATION/MosulGame.app/Contents/MacOS/MosulGame"
 
 if [[ ! -x "$EXECUTABLE_PATH" ]]; then
-  echo "error: expected Mosul executable was not found: $EXECUTABLE_PATH" >&2
+  echo "error: expected MosulGame executable was not found: $EXECUTABLE_PATH" >&2
   exit 1
 fi
 

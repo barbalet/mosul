@@ -22,13 +22,92 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
 - Active: Step 15 - Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
 - Active detail: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.
-- Last advanced: 2026-06-08
+- Last advanced: 2026-06-12
+
+## Standalone Release Build Plan
+
+Estimate: 24 development cycles from the current repo-playable MosulGame state
+to a polished standalone macOS release build. A rough release candidate can
+exist after cycle 18 if the bundled app launches, plays the full scenario, and
+passes automated smoke checks outside the source checkout. Cycles 19-24 are the
+polish, signing, distribution, and release-hardening pass that make it feel
+safe to hand to external testers.
+
+A cycle here means one focused implementation-and-verification loop that leaves
+the repository buildable. Some cycles can overlap, but each should land with
+tests, scripts, or release artifacts updated in the same change.
+
+### Standalone Release Definition
+
+The standalone build is done when:
+
+- `MosulGame.app` launches from Finder, `/Applications`, and a mounted DMG
+  without a `mosul` source checkout beside it.
+- All runtime scenario files, manifests, map PNGs, sprite PNGs, marker data,
+  and required `modernerKrieg` metadata are inside the app bundle under
+  `Contents/Resources`.
+- The app resolves resources through `Bundle.main.resourceURL` first, and uses
+  the repo checkout only as a development fallback.
+- A fresh user can choose a side, select units, issue orders, run opponent AI,
+  resolve breach/search/rooftop/cache interactions, and reach an after-action
+  result without using developer scripts.
+- Snapshot/evidence capture works in headless command-line mode and cannot hang
+  CI indefinitely.
+- macOS release builds exist for Apple Silicon and Intel, are signed
+  ad-hoc for local testing, and have a documented Developer ID/notarization
+  path for public distribution.
+- CI validates portable C tests, native Mac builds, bundled-resource integrity,
+  launch smoke, snapshot evidence, and release packaging scripts.
+- `RELEASE.md` can be followed from a clean checkout to produce verified DMGs
+  and a populated source archive.
+
+### Release Cycles
+
+| Cycle | Theme | Technical Work | Exit Criteria |
+| --- | --- | --- | --- |
+| 1 | Release scope lock | Define the exact public-demo scenario, supported macOS versions, target architectures, and whether the first public name remains `MosulGame` or ships as display-name `MOSUL`. | `PLAN.md` and `RELEASE.md` agree on product name, versioning, scope, and supported platforms. |
+| 2 | Resource inventory | Generate an explicit list of runtime assets needed by MosulGame: scenario files, map manifests, building-level/topology manifests, map PNGs, sprite manifests, rendered sprites, marker manifests, and any README/evidence assets used at runtime. | A checked-in manifest or script can fail if a required runtime resource is missing. |
+| 3 | Bundle layout | Add a deterministic app-resource layout under `Contents/Resources/mosul-runtime/` without copying source art into `Mac/`. Prefer an Xcode build phase or script that copies from `modernerKrieg` at build time. | A Debug app bundle contains the complete runtime payload and excludes source-only art, build outputs, and candidate/provenance folders. |
+| 4 | Runtime root resolver | Change `MosulGameModel.findModernerKriegRoot` and `MosulSpriteManifest` usage into a resource resolver that checks the bundled runtime first, then falls back to the source checkout for development. | Launching the built app from outside the repo still loads scenario data, map levels, and sprites. |
+| 5 | Bridge path contract | Update `MosulEngineCreate`/bridge naming if needed so the C bridge accepts a runtime asset root, not necessarily a `modernerKrieg` repository root. | The C bridge no longer assumes README/source-tree files exist at runtime. |
+| 6 | Bundled-resource tests | Add a script or C/Swift smoke that validates the built `.app` contains every resource referenced by the scenario, manifests, and sprite render manifest. | CI fails on missing bundled maps, sprites, marker manifests, or scenario data. |
+| 7 | Launch smoke outside repo | Add a Mac smoke step that copies `MosulGame.app` to a temporary directory, launches it or its evidence mode from there, and verifies no source-checkout path is required. | The smoke app works with the repository temporarily hidden or unavailable. |
+| 8 | Snapshot hang fix | Fix the current snapshot evidence hang by making command-line capture complete deterministically, report errors, and exit under a watchdog. | `scripts/capture_snapshot_evidence.sh` produces a PNG and returns nonzero on timeout or renderer failure. |
+| 9 | Evidence parity | Extend snapshot evidence to cover side selection, one selected unit, one move/investigate order, visible upper-floor overlay state, and after-action text presence. | The PNG and a small text report prove the player-facing UI path is rendering the expected state. |
+| 10 | Player onboarding | Replace developer-first launch state with a compact first-run flow: scenario title, side choice, objective summary, and clear start controls. | A new user can start without reading README instructions. |
+| 11 | Command ergonomics | Polish selection, move/investigate mode, disabled command states, interaction buttons, and feedback notices so commands feel intentional and recoverable. | Manual smoke checklist covers select, move, hold, overwatch, rally, investigate, breach/search, and reset. |
+| 12 | Fog of war and side context | Finish Step 15: hide or soften enemy state based on chosen side and label U.S.-perspective scoring separately from chosen-side command context. | Player-facing UI no longer leaks full omniscient AIBattle information by default. |
+| 13 | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | A manual or scripted playthrough reaches each expected outcome band. |
+| 14 | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | AI/autoplay tests and evidence reports show stable results without stalls or instant trivial outcomes. |
+| 15 | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | Release build stays inside documented launch/memory/render budgets on Apple Silicon and Intel. |
+| 16 | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | A broken bundle fails with actionable user-facing errors and diagnostic logs. |
+| 17 | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | The app remains usable at minimum window size and with keyboard/VoiceOver basics. |
+| 18 | Release candidate build script | Add or update a release script that builds Apple Silicon and Intel app bundles from a clean checkout with bundled resources and ad-hoc signing. | A local command produces both unsigned/ad-hoc app bundles and verifies architecture with `lipo`. |
+| 19 | DMG packaging | Automate DMG creation with stable volume names, app bundle placement, checksum output, and overwrite-safe `dist/` behavior. | `dist/` contains reproducible Apple Silicon and Intel DMGs plus SHA-256 sums. |
+| 20 | Developer ID and notarization | Keep ad-hoc signing available, but document and optionally script Developer ID signing, notary submission, stapling, and verification. | `RELEASE.md` can be followed for both local unsigned testing and public notarized release. |
+| 21 | CI release dry run | Add a non-secret CI dry run that builds release configuration, validates bundled resources, and packages unsigned artifacts without notarization. | Pull requests prove release packaging stays healthy. |
+| 22 | Clean-machine QA | Test the app from a fresh checkout, from outside the checkout, from a DMG, and after moving to `/Applications`; include at least one Intel or Rosetta check if hardware is unavailable. | QA notes record exact OS, architecture, app path, and pass/fail evidence. |
+| 23 | Release docs and support | Update README, Mac README, RELEASE, troubleshooting, known limitations, source archive instructions, and tester handoff notes. | External testers know how to install, launch, report issues, and understand current demo limitations. |
+| 24 | Final release freeze | Tag the source, lock the `modernerKrieg` submodule revision, regenerate artifacts, verify checksums, write release notes, and archive evidence. | A GitHub release can be published with DMGs, source zip, checksums, release notes, and known-limitations list. |
+
+### Technical Risk List
+
+- The current app is repo-playable because runtime discovery walks up from the
+  Swift source file path toward `modernerKrieg`; standalone release work must
+  replace that with bundled-resource discovery.
+- `MosulGame.xcodeproj` has an empty resources phase today, so runtime payload
+  bundling is not automatic.
+- Snapshot evidence currently builds but the app launch can hang; this blocks
+  robust visual regression and launch smoke until fixed.
+- The app UI still carries some developer-facing panels and omniscient battle
+  state inherited from AIBattle tuning work.
+- Release packaging currently assumes the submodule source archive is attached,
+  but the app bundle itself still needs its own curated runtime payload.
 
 ## Current Public Baseline
 
 - The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
 - `MosulGame.xcodeproj` builds the player-facing Mac game shell with an opening choice to command either the U.S. patrol or the opposing armed cell.
-- `Mosul.xcodeproj` now builds a native Mac SwiftUI shell from this repository.
 - `AIBattle.xcodeproj` builds a standalone Mac AI-vs-AI autoplay shell that reuses the Mosul model, tactical view, bridge, and C core sources.
 - `Mac/Mosul/App/` contains the SwiftUI presentation, map view, controls, and inspector.
 - `Mac/Mosul/Bridge/` contains a small C bridge over the `modernerKrieg` headers.
@@ -39,9 +118,9 @@ The project is ready to move from art/import work into playable-demo development
 - `modernerKrieg` now carries runtime building-level PNGs, alpha overlays, and multistorey mask metadata for the Market / Commercial Streets map.
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
-- `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the MosulGame, Mosul, and AIBattle app bundles through Xcode.
+- `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the MosulGame and AIBattle app bundles through Xcode.
 - MosulGame gates manual orders to the selected human side and can run deterministic opponent-only AI ticks through the shared C bridge.
-- `scripts/capture_snapshot_evidence.sh` builds Mosul, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
+- `scripts/capture_snapshot_evidence.sh` builds MosulGame, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.
 - `scripts/capture_aibattle_movie.sh` builds AIBattle, runs a deterministic movie-only app launch, and writes ignored full-battle MOV captures plus a final tuning report under `snapshots/evidence/`.
 - The shared Mac tactical map now resolves unit glyphs through `modernerKrieg`'s runtime sprite manifest and draws runtime PNG sprites in both Mosul and AIBattle.
@@ -106,7 +185,7 @@ The demo is playable when a user can launch one scenario, inspect the map, selec
 ### Build And Release
 
 - Keep `modernerKrieg` headless tests runnable without any native app dependency.
-- Keep `Mosul.xcodeproj` buildable from the repository root.
+- Keep `MosulGame.xcodeproj` buildable from the repository root.
 - Package one macOS-first SwiftUI demo before broadening to Windows.
 - Keep all PNG assets and loaders in `modernerKrieg`; do not copy runtime art into the Mac app tree unless packaging explicitly requires a generated bundle step.
 

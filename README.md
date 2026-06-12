@@ -26,7 +26,7 @@ The matching map, sprite, and marker manifests are also present under:
 modernerKrieg/assets/mosul/manifests/
 ```
 
-The native Mac demo is now present in this repository as `MosulGame.xcodeproj`, with the earlier `Mosul.xcodeproj` wrapper retained for continuity. MosulGame is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
+The native Mac demo is present in this repository as `MosulGame.xcodeproj`. MosulGame is a thin SwiftUI app over the `modernerKrieg` C core: SwiftUI handles presentation and input, a small C bridge exposes the current scenario state to Swift, and the simulation, AI, scenario data, manifest parsing, and PNG runtime assets remain in the submodule.
 
 The current Mac app renders the runtime Market / Commercial Streets ground-level PNG plus upper-floor and roof-access alpha overlays from `modernerKrieg/assets/mosul/runtime/`, receives the sprite, marker, map-level, unit-level, contact-level, and interaction-level ids it needs through the C bridge, draws matching runtime PNG sprites from `modernerKrieg`, overlays edge-aware tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, clustered contact reports, and breach/search/cache/rooftop interactions, labels selected-unit/contact/interaction level context, auto-shows tactically referenced upper-floor overlays, shows C-core after-action results in the inspector, and provides controls for side selection, selection, movement, investigation, breach/search, map-level visibility, single-step simulation, reset, and deterministic opponent AI ticks.
 
@@ -36,7 +36,7 @@ The Mac app also includes the codenamed `snapshot` path for visual testing. The 
 scripts/capture_snapshot_evidence.sh
 ```
 
-That command builds the Mosul app, runs a deterministic snapshot-only launch, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
+That command builds the MosulGame app, runs a deterministic snapshot-only launch, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
 
 ## Tactical Identity
 
@@ -140,7 +140,6 @@ The current headless CTest suite validates the portable core, board-view project
 The Mac app source is kept in `mosul`, not in `modernerKrieg`:
 
 - `MosulGame.xcodeproj`: Xcode project for the player-facing native Mac game.
-- `Mosul.xcodeproj`: earlier native Mac wrapper retained for continuity.
 - `Mac/Mosul/App/`: SwiftUI app, map view, controls, and inspector panels.
 - `Mac/Mosul/Bridge/`: C bridge between Swift and the `modernerKrieg` headers.
 - `Mac/README.md`: Mac-specific build notes.
@@ -167,7 +166,7 @@ Run the repeatable native Mac smoke path:
 scripts/run_mac_smoke.sh
 ```
 
-The smoke script builds `MosulGame.xcodeproj`, `Mosul.xcodeproj`, and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, complementing the portable CTest coverage in `modernerKrieg`.
+The smoke script builds `MosulGame.xcodeproj` and `AIBattle.xcodeproj` into `build/mac-smoke/` through Xcode, with code signing disabled, then verifies that each expected `.app` executable was produced. The root `Mac App Smoke` GitHub Actions workflow runs the same script on macOS, complementing the portable CTest coverage in `modernerKrieg`.
 
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, runtime map level PNGs, and overview fallback directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
 
@@ -212,7 +211,6 @@ MOSUL is not a reskin of a World War II system. Modern Mosul needs its own rules
 ```text
 mosul/
   MosulGame.xcodeproj/       native Mac player-facing game project
-  Mosul.xcodeproj/            native Mac demo project
   AIBattle.xcodeproj/         native Mac AI-vs-AI autoplay project
   README.md
   Mac/                        SwiftUI app and C bridge
