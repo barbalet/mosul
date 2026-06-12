@@ -32,7 +32,7 @@ modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario
 
 MosulGame renders the runtime ground-level PNG plus upper-floor and roof-access alpha overlays from `modernerKrieg/assets/mosul/runtime/`, receives the sprite, marker, map-level, unit-level, contact-level, and interaction-level ids it needs through the C bridge, draws the matching runtime PNG sprites from `modernerKrieg`, overlays edge-aware tactical markers for objectives, orders, routes, suppression, casualties, civilians, dedicated civilian-risk underlays, clustered contact reports, and breach/search/cache/rooftop interactions, labels selected-unit/contact/interaction level context, auto-shows tactically referenced upper-floor overlays, shows C-core after-action results in the inspector, and can toggle map levels, step the simulation, run opponent AI ticks, or issue selected-unit interaction actions.
 
-The opening screen lets the player command either the U.S. patrol or the opposing armed cell. Manual orders are gated to the chosen side; opponent ticks run the other side through the existing deterministic tactical AI.
+The opening screen lets the player command either the U.S. patrol or the opposing armed cell. Manual orders are gated to the chosen side; opponent ticks run the other side through the existing deterministic tactical AI. The player-facing map and inspector hide unconfirmed opposing units, redact opposing unit detail, and keep U.S.-perspective scoring labeled separately from command context. The manual command and fog-of-war smoke checklist lives at `docs/mosulgame_manual_smoke.md`.
 
 Run the repeatable Mac app smoke path from the repository root:
 

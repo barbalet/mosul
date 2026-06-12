@@ -173,7 +173,7 @@ The smoke script builds `MosulGame.xcodeproj` and `AIBattle.xcodeproj` into `bui
 
 The app expects the submodule at `mosul/modernerKrieg`. It loads the current `.mkscenario` file, map manifest, runtime map level PNGs, and overview fallback directly from that submodule during development, so PNG files and loaders do not need to be copied into the Mac app tree.
 
-MosulGame starts by letting the player command either the U.S. patrol or the opposing armed cell in the decisive 2003 Market / Commercial Streets battle. The chosen side receives manual orders while the opponent advances through the same deterministic tactical AI used by AIBattle.
+MosulGame starts by letting the player command either the U.S. patrol or the opposing armed cell in the decisive 2003 Market / Commercial Streets battle. The chosen side receives manual orders while the opponent advances through the same deterministic tactical AI used by AIBattle. The player-facing UI filters hidden opposing units, redacts opposing unit detail, and keeps U.S.-perspective scoring labeled separately from command context. Use `docs/mosulgame_manual_smoke.md` for the current manual command/fog-of-war smoke checklist.
 
 The standalone `AIBattle.xcodeproj` app is an AI-vs-AI autoplay shell over the same shared Mosul Swift model, tactical map view, C bridge, and `modernerKrieg` core sources. It continuously runs both sides under AI, visualizes battle state, records each result, and restarts with the next seeded battle variant so playability and visualization can be exercised before the main player-facing app is complete.
 

@@ -4,6 +4,13 @@ struct ContentView: View {
     @StateObject private var model = MosulGameModel()
     @State private var snapshotStatus = ""
 
+    private var modeBinding: Binding<MosulMapMode> {
+        Binding(
+            get: { model.mode },
+            set: { model.setMode($0) }
+        )
+    }
+
     var body: some View {
         ZStack {
             gameLayout
@@ -32,50 +39,106 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(MosulVersion.displayName)
-                    .font(.headline)
-                Text("\(model.scenarioName)  |  \(model.commandSideTitle) vs \(model.opponentSideTitle)  |  Tick \(model.tick)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(MosulVersion.displayName)
+                        .font(.headline)
+                    Text("\(model.scenarioName)  |  \(model.commandSideTitle) vs \(model.opponentSideTitle)  |  Tick \(model.tick)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-            Spacer()
+                Spacer()
 
-            Picker("Map Mode", selection: $model.mode) {
-                ForEach(MosulMapMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+                Picker("Map Mode", selection: modeBinding) {
+                    ForEach(MosulMapMode.allCases) { mode in
+                        Label(mode.rawValue, systemImage: mode.symbolName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 270)
+                .help(model.mode.prompt)
+
+                Button {
+                    model.issueHold()
+                } label: {
+                    Label("Hold", systemImage: "hand.raised.fill")
+                }
+                .disabled(!model.selectedUnitCanReceiveOrders)
+                .help("Hold the selected command unit in place.")
+
+                Button {
+                    model.issueOverwatch()
+                } label: {
+                    Label("Overwatch", systemImage: "eye.fill")
+                }
+                .disabled(!model.selectedUnitCanReceiveOrders)
+                .help("Set the selected command unit to overwatch.")
+
+                Button {
+                    model.issueRally()
+                } label: {
+                    Label("Rally", systemImage: "cross.case.fill")
+                }
+                .disabled(!model.selectedUnitCanReceiveOrders)
+                .help("Rally the selected command unit.")
+
+                Divider()
+                    .frame(height: 24)
+
+                Button {
+                    model.step()
+                } label: {
+                    Label("Step", systemImage: "forward.frame.fill")
+                }
+                Button {
+                    model.runOpponentAI()
+                } label: {
+                    Label("Opponent Tick", systemImage: "cpu")
+                }
+                .disabled(model.playableSide == nil)
+                Button {
+                    model.runOpponentAI(steps: 10)
+                } label: {
+                    Label("Opponent x10", systemImage: "forward.end.fill")
+                }
+                .disabled(model.playableSide == nil)
+                Button {
+                    saveSnapshot()
+                } label: {
+                    Label("Snapshot", systemImage: "camera")
+                }
+                Button {
+                    model.resetPlayableBattle()
+                } label: {
+                    Label("Reset", systemImage: "arrow.counterclockwise")
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 260)
 
-            Button("Hold") { model.issueHold() }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-            Button("Overwatch") { model.issueOverwatch() }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-            Button("Rally") { model.issueRally() }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-
-            Divider()
-                .frame(height: 24)
-
-            Button("Step") { model.step() }
-            Button("Opponent Tick") { model.runOpponentAI() }
-                .disabled(model.playableSide == nil)
-            Button("Opponent x10") { model.runOpponentAI(steps: 10) }
-                .disabled(model.playableSide == nil)
-            Button {
-                saveSnapshot()
-            } label: {
-                Label("Snapshot", systemImage: "camera")
-            }
-            Button("Reset") { model.resetPlayableBattle() }
+            commandStatusRow
         }
         .buttonStyle(.bordered)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var commandStatusRow: some View {
+        HStack(spacing: 8) {
+            Label(model.commandHint, systemImage: model.mode.symbolName)
+                .font(.caption)
+                .foregroundStyle(model.selectedUnitCanReceiveOrders ? .primary : .secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 12)
+
+            if model.hiddenEnemyUnitCount > 0 {
+                Label("\(model.hiddenEnemyUnitCount) unconfirmed contacts withheld", systemImage: "eye.slash")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var sideSelectionOverlay: some View {
@@ -188,7 +251,7 @@ struct ContentView: View {
     }
 
     private var commandPanel: some View {
-        panel("Command") {
+        panel("Command Context") {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.commandSideTitle)
@@ -214,17 +277,26 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Divider()
+
+            metricRow("Mode", model.mode.rawValue)
+            metricRow("Command State", model.selectedUnitCanReceiveOrders ? "Ready" : "Select command unit")
         }
     }
 
     private var scorePanel: some View {
-        panel("Situation") {
+        panel("U.S. Stabilization Score") {
             metricRow("Score", "\(model.score.total)")
-            metricRow("US Outcome", outcomeName(model.score.outcome))
+            metricRow("Outcome", outcomeName(model.score.outcome))
             metricRow("Objectives", "\(model.score.controlledObjectives) controlled / \(model.score.contestedObjectives) contested")
             metricRow("Interactions", "\(model.score.interactionPoints)")
             metricRow("Civilian Risk", "\(model.score.civilianRisk)")
             metricRow("Casualties", "US \(model.score.playerCasualties) | Opfor \(model.score.opforCasualties) | Civ \(model.score.civilianCasualties)")
+            Text("Score remains from the U.S. stabilization perspective, separate from the chosen command side.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -271,29 +343,39 @@ struct ContentView: View {
     private var selectedPanel: some View {
         panel("Selected") {
             if let unit = model.selectedUnit {
-                Text(unit.name)
+                let fullIntel = model.canInspectFullIntel(for: unit)
+
+                Text(model.playerFacingUnitName(unit))
                     .font(.subheadline.weight(.semibold))
-                metricRow("Side", sideName(unit.side))
-                metricRow("Order", orderName(unit.order))
-                metricRow("Status", statusName(unit.status))
+                metricRow("Side", model.playerFacingUnitSideName(unit))
                 metricRow("Level", model.levelName(for: unit.levelID))
-                if !unit.topologyNodeID.isEmpty {
-                    metricRow("Node", unit.topologyNodeID)
-                }
-                if unit.routeUsesVerticalTransition {
-                    metricRow("Route", "\(model.levelLabel(for: unit.levelID))->\(model.levelLabel(for: unit.targetLevelID))")
-                }
-                metricRow("Position", "\(Int(unit.x)), \(Int(unit.y)) m")
-                metricRow("Soldiers", "\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
-                metricRow("Suppression", "\(unit.suppression)")
+                metricRow("Position", fullIntel ? "\(Int(unit.x)), \(Int(unit.y)) m" : model.playerFacingPosition(x: unit.x, y: unit.y))
                 metricRow("Control", model.canIssueOrders(to: unit) ? "Command" : "Intel")
 
-                let tasks = Array(model.selectedInteractionTasks.prefix(5))
-                if !tasks.isEmpty {
-                    Divider()
-                    ForEach(tasks) { interaction in
-                        interactionTaskRow(interaction)
+                if fullIntel {
+                    metricRow("Order", orderName(unit.order))
+                    metricRow("Status", statusName(unit.status))
+                    if !unit.topologyNodeID.isEmpty {
+                        metricRow("Node", unit.topologyNodeID)
                     }
+                    if unit.routeUsesVerticalTransition {
+                        metricRow("Route", "\(model.levelLabel(for: unit.levelID))->\(model.levelLabel(for: unit.targetLevelID))")
+                    }
+                    metricRow("Soldiers", "\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
+                    metricRow("Suppression", "\(unit.suppression)")
+
+                    let tasks = Array(model.selectedInteractionTasks.prefix(5))
+                    if !tasks.isEmpty {
+                        Divider()
+                        ForEach(tasks) { interaction in
+                            interactionTaskRow(interaction)
+                        }
+                    }
+                } else {
+                    Text("Exact order, strength, and suppression are hidden until this contact is resolved.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 Text("Select a unit on the map or in the list.")
@@ -309,8 +391,8 @@ struct ContentView: View {
         let rooftop = model.interactions.filter { $0.kind == 4 }.count
         let activeLevels = model.tacticalMapLevelIDs.map { model.levelLabel(for: $0) }.sorted().joined(separator: ", ")
 
-        return panel("Interactions") {
-            metricRow("Visible", "\(model.interactions.count)")
+        return panel("Map Tasks") {
+            metricRow("Known", "\(model.interactions.count)")
             metricRow("Unresolved", "\(unresolved)")
             metricRow("Actionable", "\(actionable)")
             metricRow("Rooftop", "\(rooftop)")
@@ -322,15 +404,15 @@ struct ContentView: View {
 
     private var unitsPanel: some View {
         panel("Units") {
-            ForEach(model.units) { unit in
+            ForEach(model.playerVisibleUnits) { unit in
                 Button {
                     model.select(unitID: unit.id)
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(unit.name)
+                            Text(model.playerFacingUnitName(unit))
                                 .font(.caption.weight(.semibold))
-                            Text("\(sideName(unit.side)) | \(model.levelLabel(for: unit.levelID)) | \(orderName(unit.order)) | \(statusName(unit.status))")
+                            Text(model.playerFacingUnitSummary(unit))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -339,30 +421,45 @@ struct ContentView: View {
                             Text("You")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.blue)
+                        } else if !model.canInspectFullIntel(for: unit) {
+                            Text("Intel")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
                         }
-                        Text("\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
-                            .font(.caption.monospacedDigit())
+                        if model.canInspectFullIntel(for: unit) {
+                            Text("\(unit.soldierCount - unit.casualtyCount)/\(unit.soldierCount)")
+                                .font(.caption.monospacedDigit())
+                        }
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, 4)
             }
+
+            if model.hiddenEnemyUnitCount > 0 {
+                Divider()
+                Label("\(model.hiddenEnemyUnitCount) opposing elements remain unconfirmed.", systemImage: "eye.slash")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     private var contactsPanel: some View {
-        panel("Contacts") {
-            if model.contacts.isEmpty {
+        panel("Contact Reports") {
+            let contacts = model.playerVisibleContacts
+
+            if contacts.isEmpty {
                 Text("No reports yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(model.contacts.prefix(8)) { contact in
+                ForEach(contacts.prefix(8)) { contact in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(contactName(contact.kind)) at \(Int(contact.x)), \(Int(contact.y)) m")
+                        Text("\(contactName(contact.kind)) at \(model.playerFacingPosition(x: contact.x, y: contact.y))")
                             .font(.caption.weight(.semibold))
-                        Text("Tick \(contact.tick) | \(model.levelLabel(for: contact.levelID)) | \(sideName(contact.side)) | confidence \(contact.confidence)")
+                        Text("Tick \(contact.tick) | \(model.levelLabel(for: contact.levelID)) | \(model.playerFacingContactSideName(contact)) | confidence \(contact.confidence)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -425,16 +522,22 @@ struct ContentView: View {
 
                 HStack(spacing: 5) {
                     if primaryInteractionTitle(interaction) != "Route", interaction.routeAvailable {
-                        Button("Route") {
+                        Button {
                             model.routeToInteraction(interaction)
+                        } label: {
+                            Label("Route", systemImage: "arrow.up.right")
                         }
-                        .disabled(model.selectedUnit == nil)
+                        .disabled(!model.selectedUnitCanReceiveOrders)
+                        .help("Route the selected command unit to this task.")
                     }
 
-                    Button(primaryInteractionTitle(interaction)) {
+                    Button {
                         performPrimaryInteraction(interaction)
+                    } label: {
+                        Label(primaryInteractionTitle(interaction), systemImage: primaryInteractionSymbol(interaction))
                     }
                     .disabled(!primaryInteractionEnabled(interaction))
+                    .help(primaryInteractionTitle(interaction))
                 }
                 .font(.caption2)
             }
@@ -455,6 +558,10 @@ struct ContentView: View {
     }
 
     private func primaryInteractionEnabled(_ interaction: MosulInteraction) -> Bool {
+        guard model.selectedUnitCanReceiveOrders else {
+            return false
+        }
+
         if interaction.source == 1 && (interaction.vertical || interaction.open) {
             return interaction.routeAvailable
         }
@@ -464,6 +571,18 @@ struct ContentView: View {
         }
 
         return interaction.actionable && !interaction.searched
+    }
+
+    private func primaryInteractionSymbol(_ interaction: MosulInteraction) -> String {
+        if interaction.source == 1 {
+            if interaction.vertical || interaction.open {
+                return "arrow.up.right"
+            }
+
+            return "hammer.fill"
+        }
+
+        return interaction.searched ? "checkmark" : "magnifyingglass"
     }
 
     private func performPrimaryInteraction(_ interaction: MosulInteraction) {

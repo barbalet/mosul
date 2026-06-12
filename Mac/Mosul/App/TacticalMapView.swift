@@ -132,6 +132,9 @@ struct TacticalMapView: View {
     @ViewBuilder
     private func overlayContent(layout: MapLayout, containerSize: CGSize) -> some View {
         ZStack(alignment: .topLeading) {
+            let contacts = model.playerVisibleContacts
+            let units = model.playerVisibleUnits
+
             ForEach(model.civilians.filter { $0.risk > 0 }) { civilian in
                 let point = screenPoint(x: civilian.x, y: civilian.y, layout: layout)
                 civilianRiskMarker(civilian, at: point)
@@ -172,9 +175,18 @@ struct TacticalMapView: View {
                 }
             }
 
-            ForEach(Array(model.contacts.enumerated()), id: \.element.id) { index, contact in
+            ForEach(Array(contacts.enumerated()), id: \.element.id) { index, contact in
                 let point = screenPoint(x: contact.x, y: contact.y, layout: layout)
-                contactMarker(contact, at: contactMarkerPoint(contact, basePoint: point, index: index, layout: layout))
+                contactMarker(
+                    contact,
+                    at: contactMarkerPoint(
+                        contact,
+                        basePoint: point,
+                        index: index,
+                        layout: layout,
+                        contacts: contacts
+                    )
+                )
             }
 
             ForEach(model.interactions) { interaction in
@@ -182,11 +194,11 @@ struct TacticalMapView: View {
                 interactionMarker(interaction, at: point, layout: layout)
             }
 
-            ForEach(model.units) { unit in
+            ForEach(units) { unit in
                 let point = screenPoint(x: unit.x, y: unit.y, layout: layout)
                 let markerPoint = clampedMarkerPoint(point, size: unitMarkerSize(unit, layout: layout), layout: layout)
 
-                if unit.hasTarget {
+                if unit.hasTarget && model.canInspectFullIntel(for: unit) {
                     let targetPoint = screenPoint(x: unit.targetX, y: unit.targetY, layout: layout)
                     let target = clampedMarkerPoint(targetPoint, size: CGSize(width: 24, height: 24), layout: layout)
                     Path { path in
@@ -329,10 +341,16 @@ struct TacticalMapView: View {
         .position(point)
     }
 
-    private func contactMarkerPoint(_ contact: MosulContact, basePoint: CGPoint, index: Int, layout: MapLayout) -> CGPoint {
+    private func contactMarkerPoint(
+        _ contact: MosulContact,
+        basePoint: CGPoint,
+        index: Int,
+        layout: MapLayout,
+        contacts: [MosulContact]
+    ) -> CGPoint {
         let markerSize = CGSize(width: 24, height: 24)
         let clampedBase = clampedMarkerPoint(basePoint, size: markerSize, layout: layout)
-        let clusteredContacts = Array(model.contacts.enumerated()).filter { pair in
+        let clusteredContacts = Array(contacts.enumerated()).filter { pair in
             let otherIndex = pair.offset
             let otherContact = pair.element
             guard otherContact.id != contact.id || otherIndex == index else { return false }
@@ -525,7 +543,7 @@ struct TacticalMapView: View {
 
     private func unitLabel(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
         let levelSuffix = unit.selected || unit.routeUsesVerticalTransition ? " \(model.levelLabel(for: unit.levelID))" : ""
-        let label = "\(shortName(unit.name))\(levelSuffix)"
+        let label = "\(shortName(model.playerFacingUnitName(unit)))\(levelSuffix)"
         let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 110), height: 16)
         let spriteSize = unitSpriteSize(unit, layout: layout)
         let yOffset = point.y > layout.rect.maxY - 36 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
@@ -578,6 +596,14 @@ struct TacticalMapView: View {
         if !unit.selectionMarkerID.isEmpty {
             count += 1
         }
+
+        guard model.canInspectFullIntel(for: unit) else {
+            if unit.hidden || unit.revealed {
+                count += 1
+            }
+            return count
+        }
+
         if unit.hidden {
             count += 1
         }
@@ -599,23 +625,28 @@ struct TacticalMapView: View {
             if !unit.selectionMarkerID.isEmpty {
                 markerChip(symbol: "scope", color: .white, background: sideColor(unit.side))
             }
-            if unit.hidden && !unit.revealed {
-                markerChip(symbol: "eye.slash.fill", color: .white, background: .purple)
-            } else if unit.hidden && unit.revealed {
-                markerChip(symbol: "eye.fill", color: .white, background: .orange)
-            }
-            if !unit.orderMarkerID.isEmpty {
-                markerChip(
-                    symbol: markerSymbol(unit.orderMarkerID, fallback: orderSymbol(unit.order)),
-                    color: .white,
-                    background: markerColor(unit.orderMarkerID, fallback: sideColor(unit.side))
-                )
-            }
-            if !unit.suppressionMarkerID.isEmpty {
-                suppressionMarker(unit.suppression, markerID: unit.suppressionMarkerID)
-            }
-            if !unit.casualtyMarkerID.isEmpty {
-                casualtyMarker(unit, markerID: unit.casualtyMarkerID)
+
+            if !model.canInspectFullIntel(for: unit) {
+                markerChip(symbol: unit.revealed ? "eye.fill" : "questionmark", color: .white, background: Color.gray)
+            } else {
+                if unit.hidden && !unit.revealed {
+                    markerChip(symbol: "eye.slash.fill", color: .white, background: .purple)
+                } else if unit.hidden && unit.revealed {
+                    markerChip(symbol: "eye.fill", color: .white, background: .orange)
+                }
+                if !unit.orderMarkerID.isEmpty {
+                    markerChip(
+                        symbol: markerSymbol(unit.orderMarkerID, fallback: orderSymbol(unit.order)),
+                        color: .white,
+                        background: markerColor(unit.orderMarkerID, fallback: sideColor(unit.side))
+                    )
+                }
+                if !unit.suppressionMarkerID.isEmpty {
+                    suppressionMarker(unit.suppression, markerID: unit.suppressionMarkerID)
+                }
+                if !unit.casualtyMarkerID.isEmpty {
+                    casualtyMarker(unit, markerID: unit.casualtyMarkerID)
+                }
             }
         }
     }

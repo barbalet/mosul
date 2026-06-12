@@ -37,8 +37,8 @@ A cycle here means one focused implementation-and-verification loop that leaves
 the repository buildable. Some cycles can overlap, but each should land with
 tests, scripts, or release artifacts updated in the same change.
 
-Current standalone release cycle: cycle 11, Command ergonomics. Completed
-standalone release cycles: cycles 1-10 on 2026-06-12.
+Current standalone release cycle: cycle 13, Scenario completion loop. Completed
+standalone release cycles: cycles 1-12 on 2026-06-12.
 
 ### Standalone Release Definition
 
@@ -78,9 +78,9 @@ The standalone build is done when:
 | 8 | completed 2026-06-12 | Snapshot hang fix | Fix the current snapshot evidence hang by making command-line capture complete deterministically, report errors, and exit under a watchdog. | `scripts/capture_snapshot_evidence.sh` validates the built app payload, removes stale output before capture, launches snapshot evidence through `open -W -n`, requires bundled runtime resources, writes a PNG, and returns nonzero on timeout or renderer failure. |
 | 9 | completed 2026-06-12 | Evidence parity | Extend snapshot evidence to cover side selection, one selected unit, one move/investigate order, visible upper-floor overlay state, and after-action text presence. | `scripts/capture_snapshot_evidence.sh` now stages a player path through side selection, selected command unit, configurable move/investigate order, visible upper-floor overlays, player-state evidence rendering, and a `.txt` report that must include `ok=true`. |
 | 10 | completed 2026-06-12 | Player onboarding | Replace developer-first launch state with a compact first-run flow: scenario title, side choice, objective summary, and clear start controls. | The first-run overlay now presents `MOSUL`, the scenario name, location/year, objective counts, scenario objectives, U.S. scoring context, and clear icon-backed `Start U.S. Patrol` / `Start Opposing Cell` controls. |
-| 11 | next | Command ergonomics | Polish selection, move/investigate mode, disabled command states, interaction buttons, and feedback notices so commands feel intentional and recoverable. | Manual smoke checklist covers select, move, hold, overwatch, rally, investigate, breach/search, and reset. |
-| 12 | pending | Fog of war and side context | Finish Step 15: hide or soften enemy state based on chosen side and label U.S.-perspective scoring separately from chosen-side command context. | Player-facing UI no longer leaks full omniscient AIBattle information by default. |
-| 13 | pending | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | A manual or scripted playthrough reaches each expected outcome band. |
+| 11 | completed 2026-06-12 | Command ergonomics | Polish selection, move/investigate mode, disabled command states, interaction buttons, and feedback notices so commands feel intentional and recoverable. | Segmented map-mode changes now route through command validation, icon-backed order/task controls expose disabled states, player notices report select/move/investigate/hold/overwatch/rally/breach/search/reset feedback, and `docs/mosulgame_manual_smoke.md` covers the manual smoke path. |
+| 12 | completed 2026-06-12 | Fog of war and side context | Finish Step 15: hide or soften enemy state based on chosen side and label U.S.-perspective scoring separately from chosen-side command context. | MosulGame now renders player-visible units and contact reports by chosen side, hides unconfirmed opposing units, redacts opposing order/strength/suppression/route details, and labels score/after-action panels as U.S.-perspective context separate from the command side. |
+| 13 | next | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | A manual or scripted playthrough reaches each expected outcome band. |
 | 14 | pending | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | AI/autoplay tests and evidence reports show stable results without stalls or instant trivial outcomes. |
 | 15 | pending | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | Release build stays inside documented launch/memory/render budgets on Apple Silicon and Intel. |
 | 16 | pending | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | A broken bundle fails with actionable user-facing errors and diagnostic logs. |
@@ -102,8 +102,9 @@ The standalone build is done when:
 - Snapshot evidence now uses a watchdog, strict bundled-runtime validation,
   player-state evidence rendering, and a report that validates player-facing
   state.
-- The app UI still carries some developer-facing panels and omniscient battle
-  state inherited from AIBattle tuning work.
+- The player-facing app now filters hidden opposing units and redacts opposing
+  unit details, but later cycles still need a full playthrough completion pass
+  and broader UI polish.
 - Release packaging currently assumes the submodule source archive is attached,
   but the app bundle itself still needs its own curated runtime payload.
 
@@ -128,6 +129,13 @@ The standalone build is done when:
 - The Mosul C bridge now treats its creation argument as a runtime asset root and validates required scenario/map/marker runtime files before loading the game.
 - `scripts/check_mosulgame_runtime_resources.py --app <MosulGame.app>` validates the built MosulGame app bundle's runtime payload, and the Mac smoke script runs that check in CI for both the built app and a copied app outside the checkout.
 - MosulGame gates manual orders to the selected human side and can run deterministic opponent-only AI ticks through the shared C bridge.
+- MosulGame now validates map-mode changes against the selected command unit,
+  reports concise command feedback notices, and has a manual smoke checklist in
+  `docs/mosulgame_manual_smoke.md`.
+- MosulGame now filters map and inspector state through the chosen side:
+  unconfirmed opposing units are hidden, visible opposing elements are shown as
+  intel contacts, and U.S.-perspective scoring is labeled separately from
+  command context.
 - `scripts/capture_snapshot_evidence.sh` builds MosulGame, validates the app bundle payload, runs a deterministic player-path LaunchServices app launch under a timeout watchdog, and writes ignored PNG plus text-report evidence under `snapshots/evidence/`.
 - MosulGame's first-run overlay now frames the Market / Commercial Streets scenario with side choice, objective summary, U.S.-perspective scoring context, and clear start controls before enabling the tactical map.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.
