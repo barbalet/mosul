@@ -4,7 +4,7 @@ import SwiftUI
 struct TacticalMapView: View {
     @ObservedObject var model: MosulGameModel
     private var spriteManifest: MosulSpriteManifest {
-        MosulSpriteManifest.shared(for: model.modernerKriegRoot)
+        MosulSpriteManifest.shared(for: model.runtimeResources)
     }
 
     var body: some View {

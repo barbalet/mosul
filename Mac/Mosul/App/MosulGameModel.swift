@@ -240,6 +240,90 @@ enum MosulPlayableSide: Int32, CaseIterable, Identifiable {
     }
 }
 
+struct MosulRuntimeResources {
+    enum Source {
+        case bundledApp
+        case sourceCheckout
+
+        var description: String {
+            switch self {
+            case .bundledApp:
+                return "bundled app resources"
+            case .sourceCheckout:
+                return "source checkout"
+            }
+        }
+    }
+
+    private static let defaultScenarioPath = "game/mosul/scenarios/market_commercial_streets_2003.mkscenario"
+    private static let mapManifestPath = "assets/mosul/manifests/market_commercial_streets_2003.mapmanifest"
+    private static let markerManifestPath = "assets/mosul/manifests/mosul_2003_markers.markermanifest"
+    private static let spriteRuntimeManifestPath = "assets/mosul/runtime/sprites/manifest.json"
+
+    let modernerKriegRootURL: URL
+    let source: Source
+
+    var modernerKriegRoot: String {
+        modernerKriegRootURL.path
+    }
+
+    static func resolve(
+        filePath: String = #filePath,
+        bundle: Bundle = .main,
+        fileManager: FileManager = .default
+    ) -> MosulRuntimeResources {
+        if let bundledRoot = bundledModernerKriegRoot(bundle: bundle, fileManager: fileManager) {
+            return MosulRuntimeResources(modernerKriegRootURL: bundledRoot, source: .bundledApp)
+        }
+
+        return MosulRuntimeResources(
+            modernerKriegRootURL: sourceCheckoutModernerKriegRoot(filePath: filePath, fileManager: fileManager),
+            source: .sourceCheckout
+        )
+    }
+
+    private static func bundledModernerKriegRoot(bundle: Bundle, fileManager: FileManager) -> URL? {
+        guard let resourceURL = bundle.resourceURL else {
+            return nil
+        }
+
+        let root = resourceURL
+            .appendingPathComponent("mosul-runtime", isDirectory: true)
+            .appendingPathComponent("modernerKrieg", isDirectory: true)
+
+        return isUsableModernerKriegRoot(root, fileManager: fileManager) ? root : nil
+    }
+
+    private static func sourceCheckoutModernerKriegRoot(filePath: String, fileManager: FileManager) -> URL {
+        var candidate = URL(fileURLWithPath: filePath).deletingLastPathComponent()
+
+        for _ in 0..<10 {
+            let root = candidate.appendingPathComponent("modernerKrieg", isDirectory: true)
+            if isUsableModernerKriegRoot(root, fileManager: fileManager)
+                || fileManager.fileExists(atPath: root.appendingPathComponent("README.md").path) {
+                return root
+            }
+            candidate.deleteLastPathComponent()
+        }
+
+        return URL(fileURLWithPath: filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("../../modernerKrieg", isDirectory: true)
+            .standardized
+    }
+
+    private static func isUsableModernerKriegRoot(_ root: URL, fileManager: FileManager) -> Bool {
+        [
+            defaultScenarioPath,
+            mapManifestPath,
+            markerManifestPath,
+            spriteRuntimeManifestPath
+        ].allSatisfy { relativePath in
+            fileManager.fileExists(atPath: root.appendingPathComponent(relativePath).path)
+        }
+    }
+}
+
 @MainActor
 final class MosulGameModel: ObservableObject {
     @Published var scenarioName = "MOSUL"
@@ -267,6 +351,7 @@ final class MosulGameModel: ObservableObject {
     private var engine: OpaquePointer?
     private var mapLevelVisibilityInitialized = false
     private var battleIndex: UInt32 = 1
+    let runtimeResources: MosulRuntimeResources
     let modernerKriegRoot: String
 
     var mosulRoot: String {
@@ -276,7 +361,8 @@ final class MosulGameModel: ObservableObject {
     }
 
     init() {
-        modernerKriegRoot = Self.findModernerKriegRoot()
+        runtimeResources = MosulRuntimeResources.resolve()
+        modernerKriegRoot = runtimeResources.modernerKriegRoot
         engine = modernerKriegRoot.withCString { root in
             MosulEngineCreate(root)
         }
@@ -550,7 +636,7 @@ final class MosulGameModel: ObservableObject {
 
     func refresh() {
         guard let engine else {
-            lastError = "Unable to create Mosul engine. Expected modernerKrieg at \(modernerKriegRoot)."
+            lastError = "Unable to create Mosul engine from \(runtimeResources.source.description) at \(modernerKriegRoot)."
             return
         }
 
@@ -873,24 +959,6 @@ final class MosulGameModel: ObservableObject {
         )
     }
 
-    private static func findModernerKriegRoot(filePath: String = #filePath) -> String {
-        var candidate = URL(fileURLWithPath: filePath).deletingLastPathComponent()
-        let fileManager = FileManager.default
-
-        for _ in 0..<10 {
-            let root = candidate.appendingPathComponent("modernerKrieg")
-            if fileManager.fileExists(atPath: root.appendingPathComponent("README.md").path) {
-                return root.path
-            }
-            candidate.deleteLastPathComponent()
-        }
-
-        return URL(fileURLWithPath: filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("../../modernerKrieg")
-            .standardized
-            .path
-    }
 }
 
 func sideName(_ side: Int32) -> String {

@@ -37,8 +37,8 @@ A cycle here means one focused implementation-and-verification loop that leaves
 the repository buildable. Some cycles can overlap, but each should land with
 tests, scripts, or release artifacts updated in the same change.
 
-Current standalone release cycle: cycle 3, Bundle layout. Completed standalone
-release cycles: cycles 1-2 on 2026-06-12.
+Current standalone release cycle: cycle 5, Bridge path contract. Completed
+standalone release cycles: cycles 1-4 on 2026-06-12.
 
 ### Standalone Release Definition
 
@@ -70,9 +70,9 @@ The standalone build is done when:
 | --- | --- | --- | --- | --- |
 | 1 | completed 2026-06-12 | Release scope lock | Define the exact public-demo scenario, supported macOS versions, target architectures, and whether the first public name remains `MosulGame` or ships as display-name `MOSUL`. | `PLAN.md` and `RELEASE.md` agree on product name, versioning, scope, and supported platforms. |
 | 2 | completed 2026-06-12 | Resource inventory | Generate an explicit list of runtime assets needed by MosulGame: scenario files, map manifests, building-level/topology manifests, map PNGs, sprite manifests, rendered sprites, marker manifests, and any README/evidence assets used at runtime. | `release/mosulgame_runtime_resources.json` and `scripts/check_mosulgame_runtime_resources.py` validate the current runtime payload. |
-| 3 | next | Bundle layout | Add a deterministic app-resource layout under `Contents/Resources/mosul-runtime/` without copying source art into `Mac/`. Prefer an Xcode build phase or script that copies from `modernerKrieg` at build time. | A Debug app bundle contains the complete runtime payload and excludes source-only art, build outputs, and candidate/provenance folders. |
-| 4 | pending | Runtime root resolver | Change `MosulGameModel.findModernerKriegRoot` and `MosulSpriteManifest` usage into a resource resolver that checks the bundled runtime first, then falls back to the source checkout for development. | Launching the built app from outside the repo still loads scenario data, map levels, and sprites. |
-| 5 | pending | Bridge path contract | Update `MosulEngineCreate`/bridge naming if needed so the C bridge accepts a runtime asset root, not necessarily a `modernerKrieg` repository root. | The C bridge no longer assumes README/source-tree files exist at runtime. |
+| 3 | completed 2026-06-12 | Bundle layout | Add a deterministic app-resource layout under `Contents/Resources/mosul-runtime/` without copying source art into `Mac/`. Prefer an Xcode build phase or script that copies from `modernerKrieg` at build time. | `scripts/copy_mosulgame_runtime_resources.py` and the `MosulGame` Xcode build phase copy 1,101 runtime files into `Contents/Resources/mosul-runtime/modernerKrieg` while excluding source art, build outputs, snapshots, and candidate/provenance folders. |
+| 4 | completed 2026-06-12 | Runtime root resolver | Change `MosulGameModel.findModernerKriegRoot` and `MosulSpriteManifest` usage into a resource resolver that checks the bundled runtime first, then falls back to the source checkout for development. | `MosulRuntimeResources` resolves bundled runtime data first; a copied Release app under `/private/tmp` exits cleanly through `--check-runtime-resources`, and the headless runner loads the bundled scenario from that copied app root. |
+| 5 | next | Bridge path contract | Update `MosulEngineCreate`/bridge naming if needed so the C bridge accepts a runtime asset root, not necessarily a `modernerKrieg` repository root. | The C bridge no longer assumes README/source-tree files exist at runtime. |
 | 6 | pending | Bundled-resource tests | Add a script or C/Swift smoke that validates the built `.app` contains every resource referenced by the scenario, manifests, and sprite render manifest. | CI fails on missing bundled maps, sprites, marker manifests, or scenario data. |
 | 7 | pending | Launch smoke outside repo | Add a Mac smoke step that copies `MosulGame.app` to a temporary directory, launches it or its evidence mode from there, and verifies no source-checkout path is required. | The smoke app works with the repository temporarily hidden or unavailable. |
 | 8 | pending | Snapshot hang fix | Fix the current snapshot evidence hang by making command-line capture complete deterministically, report errors, and exit under a watchdog. | `scripts/capture_snapshot_evidence.sh` produces a PNG and returns nonzero on timeout or renderer failure. |
@@ -98,8 +98,9 @@ The standalone build is done when:
 - The current app is repo-playable because runtime discovery walks up from the
   Swift source file path toward `modernerKrieg`; standalone release work must
   replace that with bundled-resource discovery.
-- `MosulGame.xcodeproj` has an empty resources phase today, so runtime payload
-  bundling is not automatic.
+- `MosulGame.xcodeproj` now has a runtime-copy build phase, but cycle 5 should
+  tighten bridge naming so the C API calls the argument a runtime asset root
+  instead of a source-project root.
 - Snapshot evidence currently builds but the app launch can hang; this blocks
   robust visual regression and launch smoke until fixed.
 - The app UI still carries some developer-facing panels and omniscient battle
@@ -122,6 +123,8 @@ The standalone build is done when:
 - The SDL path is retired; new launchable interfaces should be platform-native shells over the portable C core.
 - The codenamed `snapshot` Mac test path can write timestamped local PNG captures of the current tactical-map render under ignored `snapshots/` output.
 - `scripts/run_mac_smoke.sh` and `.github/workflows/mac-app-smoke.yml` provide a repeatable native Mac smoke path that builds the MosulGame and AIBattle app bundles through Xcode.
+- `MosulGame.xcodeproj` now copies a curated runtime payload into `Contents/Resources/mosul-runtime/modernerKrieg` during app builds.
+- MosulGame resolves bundled runtime resources before falling back to the source checkout, and has a `--check-runtime-resources` app argument for LaunchServices-based bundle checks.
 - MosulGame gates manual orders to the selected human side and can run deterministic opponent-only AI ticks through the shared C bridge.
 - `scripts/capture_snapshot_evidence.sh` builds MosulGame, runs a deterministic snapshot-only app launch, and writes ignored visual evidence under `snapshots/evidence/`.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.

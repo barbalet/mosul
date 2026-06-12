@@ -14,18 +14,19 @@ final class MosulSpriteManifest {
     private let imageSets: [String: MosulSpriteImageSet]
     private let fileManager = FileManager.default
 
-    static func shared(for modernerKriegRoot: String) -> MosulSpriteManifest {
-        if let cached = cache[modernerKriegRoot] {
+    static func shared(for runtimeResources: MosulRuntimeResources) -> MosulSpriteManifest {
+        let cacheKey = runtimeResources.modernerKriegRoot
+        if let cached = cache[cacheKey] {
             return cached
         }
 
-        let manifest = MosulSpriteManifest(modernerKriegRoot: modernerKriegRoot)
-        cache[modernerKriegRoot] = manifest
+        let manifest = MosulSpriteManifest(runtimeResources: runtimeResources)
+        cache[cacheKey] = manifest
         return manifest
     }
 
-    private init(modernerKriegRoot: String) {
-        rootURL = URL(fileURLWithPath: modernerKriegRoot)
+    private init(runtimeResources: MosulRuntimeResources) {
+        rootURL = runtimeResources.modernerKriegRootURL
 
         let manifestURL = rootURL
             .appendingPathComponent("assets/mosul/runtime/sprites/manifest.json")

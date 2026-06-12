@@ -21,6 +21,15 @@ and executable named `MosulGame`. Public-facing copy and DMG volume names use
   `release/mosulgame_runtime_resources.json`
 - Runtime payload validation:
   `python3 scripts/check_mosulgame_runtime_resources.py`
+- Build-time runtime payload copy:
+  `scripts/copy_mosulgame_runtime_resources.py` copies the curated payload into
+  `Contents/Resources/mosul-runtime/modernerKrieg` during `MosulGame` app
+  builds.
+- Runtime root resolution:
+  the app checks bundled `mosul-runtime` resources first and falls back to the
+  source checkout for development.
+- App-bundle runtime check:
+  `open -W -n <path-to-MosulGame.app> --args --check-runtime-resources`
 
 ## 1. Prepare the Version
 
@@ -39,6 +48,11 @@ CURRENT_PROJECT_VERSION = <BUILD>;
 ```
 
 Use the same `VERSION` value in artifact names without the leading `v`. The Xcode target, scheme, app bundle, and executable are all named `MosulGame`.
+
+The `MosulGame` Xcode target copies the standalone runtime payload during the
+build. The payload is generated from `release/mosulgame_runtime_resources.json`
+and intentionally excludes source art, build outputs, snapshots, and
+candidate/provenance folders.
 
 `modernerKrieg` does not drive Mosul release numbering yet. For now, capture its exact linked submodule commit in the Mosul release by committing the desired gitlink and packaging the initialized submodule source into `dist/mosul-src-<VERSION>.zip`.
 

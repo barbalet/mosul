@@ -18,11 +18,13 @@
   },
   "required_files": [
     "MosulGame.xcodeproj/project.pbxproj",
+    "Mac/Mosul/App/MosulApp.swift",
     "Mac/Mosul/App/MosulVersion.swift",
     "Mac/Mosul/App/MosulGameModel.swift",
     "Mac/Mosul/App/TacticalMapView.swift",
     "Mac/Mosul/Bridge/MosulEngineBridge.c",
     "Mac/Mosul/Bridge/MosulEngineBridge.h",
+    "scripts/copy_mosulgame_runtime_resources.py",
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003.mapmanifest",
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_building_levels.json",
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_topology.json",

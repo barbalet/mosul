@@ -116,6 +116,7 @@
 				B60000000000000000000001 /* Sources */,
 				B60000000000000000000002 /* Frameworks */,
 				B60000000000000000000003 /* Resources */,
+				B60000000000000000000004 /* Copy Mosul Runtime Resources */,
 			);
 			buildRules = (
 			);
@@ -168,6 +169,32 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B60000000000000000000004 /* Copy Mosul Runtime Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/release/mosulgame_runtime_resources.json",
+				"$(SRCROOT)/scripts/check_mosulgame_runtime_resources.py",
+				"$(SRCROOT)/scripts/copy_mosulgame_runtime_resources.py",
+			);
+			name = "Copy Mosul Runtime Resources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/mosul-runtime/.mosul-runtime-resources.stamp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PYTHONDONTWRITEBYTECODE=1 python3 \"$SRCROOT/scripts/copy_mosulgame_runtime_resources.py\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/mosul-runtime\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		B60000000000000000000001 /* Sources */ = {
@@ -323,6 +350,7 @@
 					CODE_SIGN_STYLE = Automatic;
 					COMBINE_HIDPI_IMAGES = YES;
 					CURRENT_PROJECT_VERSION = 1;
+					ENABLE_USER_SCRIPT_SANDBOXING = NO;
 					GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/Mac/Mosul/Bridge",
@@ -356,6 +384,7 @@
 					CODE_SIGN_STYLE = Automatic;
 					COMBINE_HIDPI_IMAGES = YES;
 					CURRENT_PROJECT_VERSION = 1;
+					ENABLE_USER_SCRIPT_SANDBOXING = NO;
 					GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/Mac/Mosul/Bridge",
