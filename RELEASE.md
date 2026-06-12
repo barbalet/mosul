@@ -4,6 +4,24 @@ This checklist describes the release flow for MOSUL when shipping the native mac
 
 Before starting, decide the new release number and use it as the `VERSION` input throughout this checklist. Set `VERSION` without a leading `v`; the Git tag adds the leading `v` separately. For example, the current Mosul app version `0.1` uses `VERSION=0.1` and tag `v0.1`.
 
+## Release Scope
+
+The first standalone release keeps the Xcode product target, scheme, app bundle,
+and executable named `MosulGame`. Public-facing copy and DMG volume names use
+`MOSUL`.
+
+- Product target and scheme: `MosulGame`
+- App bundle and executable: `MosulGame.app` / `MosulGame`
+- Bundle identifier: `com.barbalet.mosulgame`
+- Minimum macOS version: 14.0
+- Release architectures: Apple Silicon `arm64` and Intel `x86_64`
+- Default public-demo scenario:
+  `modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario`
+- Runtime payload inventory:
+  `release/mosulgame_runtime_resources.json`
+- Runtime payload validation:
+  `python3 scripts/check_mosulgame_runtime_resources.py`
+
 ## 1. Prepare the Version
 
 Update the Mosul app version in `Mac/Mosul/App/MosulVersion.swift`:

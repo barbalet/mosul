@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "release_scope": {
+    "product_target": "MosulGame",
+    "scheme": "MosulGame",
+    "app_bundle": "MosulGame.app",
+    "executable": "MosulGame",
+    "bundle_identifier": "com.barbalet.mosulgame",
+    "display_name": "MosulGame",
+    "public_release_name": "MOSUL",
+    "minimum_macos": "14.0",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "default_scenario": "modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario",
+    "runtime_bundle_root": "Contents/Resources/mosul-runtime"
+  },
+  "required_files": [
+    "MosulGame.xcodeproj/project.pbxproj",
+    "Mac/Mosul/App/MosulVersion.swift",
+    "Mac/Mosul/App/MosulGameModel.swift",
+    "Mac/Mosul/App/TacticalMapView.swift",
+    "Mac/Mosul/Bridge/MosulEngineBridge.c",
+    "Mac/Mosul/Bridge/MosulEngineBridge.h",
+    "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003.mapmanifest",
+    "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_building_levels.json",
+    "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_topology.json",
+    "modernerKrieg/assets/mosul/manifests/mosul_2003_markers.markermanifest",
+    "modernerKrieg/assets/mosul/manifests/mosul_2003_sprites.spritemanifest",
+    "modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario"
+  ],
+  "required_directories": [
+    "modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003",
+    "modernerKrieg/assets/mosul/runtime/sprites/rendered"
+  ],
+  "derived_runtime_inputs": {
+    "scenario_asset_keys": [
+      "asset.map_manifest",
+      "asset.sprite_manifest",
+      "asset.building_level_manifest",
+      "asset.topology_manifest"
+    ],
+    "map_manifest_runtime_keys": [
+      "runtime_overview_path"
+    ],
+    "building_level_png_key": "png",
+    "sprite_manifest_runtime_keys": [
+      "runtime_pipeline_manifest",
+      "runtime_render_manifest"
+    ],
+    "sprite_render_manifest_array": "rendered",
+    "sprite_render_manifest_path_key": "path"
+  },
+  "excluded_from_standalone_bundle": [
+    "modernerKrieg/assets/mosul/source",
+    "modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003/candidates",
+    "modernerKrieg/build",
+    "build",
+    "snapshots"
+  ]
+}
