@@ -50,7 +50,11 @@ For repeatable visual evidence, run:
 scripts/capture_snapshot_evidence.sh
 ```
 
-The evidence script builds the MosulGame app, runs a deterministic snapshot-only launch with AI ticks, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
+The evidence script builds the MosulGame app, runs a deterministic player-path
+snapshot launch with opponent AI ticks, and writes
+`snapshots/evidence/mosul-map-evidence.png` plus a matching `.txt` report
+covering side selection, selected unit, issued order, upper-floor overlays, and
+after-action text.
 
 `AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a clean result, pressured partial, tick limit, or watchdog stall.
 

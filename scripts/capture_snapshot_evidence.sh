@@ -6,11 +6,14 @@ CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA_ROOT="${DERIVED_DATA_ROOT:-$ROOT_DIR/build/snapshot-evidence}"
 DESTINATION="${DESTINATION:-platform=macOS}"
 OUTPUT_PATH="${OUTPUT_PATH:-$ROOT_DIR/snapshots/evidence/mosul-map-evidence.png}"
+REPORT_PATH="${REPORT_PATH:-}"
 WIDTH=1440
-HEIGHT=1440
+HEIGHT=900
 SCALE=1
 AI_TICKS=10
 BATTLE_INDEX=1
+SIDE="us-patrol"
+ORDER="investigate"
 SKIP_BUILD=0
 TIMEOUT_SECONDS="${SNAPSHOT_TIMEOUT_SECONDS:-60}"
 
@@ -23,11 +26,14 @@ verifies that a PNG was produced for visual comparison.
 
 Options:
   --output PATH             PNG output path. Defaults to snapshots/evidence/mosul-map-evidence.png.
+  --report PATH             Text report path. Defaults to the PNG path with .txt extension.
   --width POINTS            Snapshot view width. Defaults to 1440.
-  --height POINTS           Snapshot view height. Defaults to 1440.
+  --height POINTS           Snapshot view height. Defaults to 900.
   --scale SCALE             Renderer scale. Defaults to 1.
   --ai-ticks N              Deterministic AI ticks before capture. Defaults to 10.
   --battle-index N          Scenario battle variant. Defaults to 1.
+  --side SIDE               Evidence side: us-patrol or opposing-cell. Defaults to us-patrol.
+  --order ORDER             Evidence order: move or investigate. Defaults to investigate.
   --configuration NAME      Xcode configuration. Defaults to Debug.
   --derived-data-root PATH  Build output root. Defaults to build/snapshot-evidence.
   --destination VALUE       Xcode destination. Defaults to platform=macOS.
@@ -45,6 +51,14 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       OUTPUT_PATH="$2"
+      shift 2
+      ;;
+    --report)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --report requires a value" >&2
+        exit 2
+      fi
+      REPORT_PATH="$2"
       shift 2
       ;;
     --width)
@@ -85,6 +99,22 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       BATTLE_INDEX="$2"
+      shift 2
+      ;;
+    --side)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --side requires a value" >&2
+        exit 2
+      fi
+      SIDE="$2"
+      shift 2
+      ;;
+    --order)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --order requires a value" >&2
+        exit 2
+      fi
+      ORDER="$2"
       shift 2
       ;;
     --configuration)
@@ -139,6 +169,12 @@ if [[ "$OUTPUT_PATH" != /* ]]; then
   OUTPUT_PATH="$ROOT_DIR/$OUTPUT_PATH"
 fi
 
+if [[ -z "$REPORT_PATH" ]]; then
+  REPORT_PATH="${OUTPUT_PATH%.*}.txt"
+elif [[ "$REPORT_PATH" != /* ]]; then
+  REPORT_PATH="$ROOT_DIR/$REPORT_PATH"
+fi
+
 case "$TIMEOUT_SECONDS" in
   ''|*[!0-9]*)
     echo "error: --timeout requires a positive integer" >&2
@@ -172,7 +208,9 @@ if ! command -v open >/dev/null 2>&1; then
 fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
+mkdir -p "$(dirname "$REPORT_PATH")"
 rm -f "$OUTPUT_PATH"
+rm -f "$REPORT_PATH"
 
 python3 "$ROOT_DIR/scripts/check_mosulgame_runtime_resources.py" --app "$APP_PATH"
 
@@ -228,15 +266,30 @@ run_with_watchdog "$TIMEOUT_SECONDS" \
   --snapshot-evidence \
   --require-bundled-runtime \
   --snapshot-output "$OUTPUT_PATH" \
+  --snapshot-report "$REPORT_PATH" \
   --snapshot-width "$WIDTH" \
   --snapshot-height "$HEIGHT" \
   --snapshot-scale "$SCALE" \
   --snapshot-ai-ticks "$AI_TICKS" \
-  --snapshot-battle "$BATTLE_INDEX"
+  --snapshot-battle "$BATTLE_INDEX" \
+  --snapshot-side "$SIDE" \
+  --snapshot-order "$ORDER"
 
 if [[ ! -s "$OUTPUT_PATH" ]]; then
   echo "error: snapshot evidence PNG was not produced: $OUTPUT_PATH" >&2
   exit 1
 fi
 
+if [[ ! -s "$REPORT_PATH" ]]; then
+  echo "error: snapshot evidence report was not produced: $REPORT_PATH" >&2
+  exit 1
+fi
+
+if ! grep -q '^ok=true$' "$REPORT_PATH"; then
+  echo "error: snapshot evidence report did not pass validation: $REPORT_PATH" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+
 echo "Snapshot evidence written to $OUTPUT_PATH"
+echo "Snapshot evidence report written to $REPORT_PATH"

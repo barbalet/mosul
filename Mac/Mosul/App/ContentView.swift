@@ -80,13 +80,38 @@ struct ContentView: View {
 
     private var sideSelectionOverlay: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("MosulGame")
-                    .font(.title2.weight(.semibold))
-                Text("Market / Commercial Streets, Mosul, 2003")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(MosulVersion.displayName)
+                        .font(.largeTitle.weight(.semibold))
+                    Text(model.scenarioName)
+                        .font(.headline)
+                    Text("Market / Commercial Streets, Mosul, 2003")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(model.objectives.count) objectives")
+                    Text("\(model.units.count) combat units")
+                    Text("\(model.civilians.count) civilians")
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.top, 6)
             }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 9) {
+                Label("Secure the market approaches without turning civilian risk into the deciding loss.", systemImage: "scope")
+                Label("Use rooftop and upper-floor routes to resolve hidden contacts before the district unravels.", systemImage: "square.3.layers.3d.top.filled")
+                Label("The after-action score is reported from the U.S. stabilization perspective.", systemImage: "list.clipboard")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 ForEach(MosulPlayableSide.allCases) { side in
@@ -100,7 +125,7 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.primary.opacity(0.16), lineWidth: 1)
         }
-        .frame(maxWidth: 560)
+        .frame(maxWidth: 720)
     }
 
     private func sideSelectionButton(_ side: MosulPlayableSide) -> some View {
@@ -108,14 +133,19 @@ struct ContentView: View {
             model.startPlayableBattle(as: side)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text(side.title)
-                    .font(.headline)
+                HStack(spacing: 8) {
+                    Image(systemName: side.symbolName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 20)
+                    Text("Start \(side.title)")
+                        .font(.headline)
+                }
                 Text(side.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(width: 230, height: 104, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
             .padding(12)
         }
         .buttonStyle(.borderedProminent)

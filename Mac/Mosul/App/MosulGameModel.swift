@@ -230,6 +230,15 @@ enum MosulPlayableSide: Int32, CaseIterable, Identifiable {
         }
     }
 
+    var symbolName: String {
+        switch self {
+        case .usPatrol:
+            return "shield.lefthalf.filled"
+        case .opposingCell:
+            return "scope"
+        }
+    }
+
     var opponent: MosulPlayableSide {
         switch self {
         case .usPatrol:

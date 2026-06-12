@@ -36,7 +36,10 @@ The Mac app also includes the codenamed `snapshot` path for visual testing. The 
 scripts/capture_snapshot_evidence.sh
 ```
 
-That command builds the MosulGame app, runs a deterministic snapshot-only launch, and writes `snapshots/evidence/mosul-map-evidence.png` for before/after comparison.
+That command builds the MosulGame app, runs a deterministic player-path
+snapshot launch, and writes `snapshots/evidence/mosul-map-evidence.png` plus a
+matching `.txt` report covering side selection, selected unit, issued order,
+upper-floor overlays, and after-action text.
 
 ## Tactical Identity
 
