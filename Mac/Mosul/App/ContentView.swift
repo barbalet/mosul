@@ -6,13 +6,9 @@ struct ContentView: View {
     @State private var showHowToPlay = true
     @State private var activeCommandControlTip: CommandControlTip?
     @State private var seenCommandControlTips: Set<CommandControlTip> = []
-
-    private var modeBinding: Binding<MosulMapMode> {
-        Binding(
-            get: { model.mode },
-            set: { model.setMode($0) }
-        )
-    }
+    @State private var showMovementCoach = false
+    @State private var movementCoachDismissed = false
+    @State private var movementCoachUnitID: UInt32?
 
     var body: some View {
         Group {
@@ -33,6 +29,12 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onChange(of: model.selectedUnit?.id) { _, _ in
+            presentMovementCoachIfNeeded()
+        }
+        .onChange(of: showHowToPlay) { _, _ in
+            presentMovementCoachIfNeeded()
         }
     }
 
@@ -175,81 +177,23 @@ struct ContentView: View {
 
     private var commandControls: some View {
         HStack(spacing: 8) {
-            Picker("Map Mode", selection: modeBinding) {
-                ForEach(MosulMapMode.allCases) { mode in
-                    Label(mode.rawValue, systemImage: mode.symbolName).tag(mode)
+            if model.hasActiveTargetingMode {
+                Button {
+                    model.cancelTargeting()
+                } label: {
+                    Label("Cancel Targeting", systemImage: "xmark.circle.fill")
                 }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 250)
-            .help(model.mode.prompt)
-            .accessibilityLabel("Map mode")
-            .accessibilityValue(model.mode.rawValue)
-            .accessibilityHint(model.mode.prompt)
-            .onChange(of: model.mode) { _, _ in
-                presentCommandControlTipIfNeeded(.mapMode)
-            }
-            .popover(isPresented: commandControlTipBinding(.mapMode), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                commandControlTipView(.mapMode)
+                .keyboardShortcut(.escape, modifiers: [])
+                .help("Cancel the current target selection.")
+                .accessibilityLabel("Cancel targeting")
             }
 
             Button {
-                handleCommandControl(.hold) {
-                    model.issueHold()
-                }
-            } label: {
-                Label("Hold", systemImage: "hand.raised.fill")
-            }
-            .disabled(!model.selectedUnitCanReceiveOrders)
-            .keyboardShortcut("h", modifiers: [.command])
-            .help("Hold the selected command unit in place.")
-            .accessibilityLabel("Hold selected unit")
-            .accessibilityHint("Orders the selected command unit to hold position.")
-            .popover(isPresented: commandControlTipBinding(.hold), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                commandControlTipView(.hold)
-            }
-
-            Button {
-                handleCommandControl(.overwatch) {
-                    model.issueOverwatch()
-                }
-            } label: {
-                Label("Overwatch", systemImage: "eye.fill")
-            }
-            .disabled(!model.selectedUnitCanReceiveOrders)
-            .keyboardShortcut("o", modifiers: [.command])
-            .help("Set the selected command unit to overwatch.")
-            .accessibilityLabel("Set overwatch")
-            .accessibilityHint("Orders the selected command unit to watch for threats.")
-            .popover(isPresented: commandControlTipBinding(.overwatch), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                commandControlTipView(.overwatch)
-            }
-
-            Button {
-                handleCommandControl(.rally) {
-                    model.issueRally()
-                }
-            } label: {
-                Label("Rally", systemImage: "cross.case.fill")
-            }
-            .disabled(!model.selectedUnitCanReceiveOrders)
-            .keyboardShortcut("r", modifiers: [.command])
-            .help("Rally the selected command unit.")
-            .accessibilityLabel("Rally selected unit")
-            .accessibilityHint("Attempts to reduce suppression for the selected command unit.")
-            .popover(isPresented: commandControlTipBinding(.rally), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                commandControlTipView(.rally)
-            }
-
-            Divider()
-                .frame(height: 24)
-
-            Button {
-                handleCommandControl(.step) {
+                handleCommandControl(.step, showTipFirst: !model.selectedUnitHasPendingOrder) {
                     model.step()
                 }
             } label: {
-                Label("Step", systemImage: "forward.frame.fill")
+                Label(model.selectedUnitHasPendingOrder ? "Step: Execute" : "Step", systemImage: "forward.frame.fill")
             }
             .keyboardShortcut("n", modifiers: [.command])
             .accessibilityLabel("Advance one tick")
@@ -377,13 +321,13 @@ struct ContentView: View {
                     symbol: "magnifyingglass"
                 )
                 howToPlayRow(
-                    "Overwatch",
-                    "Select a command unit and press Overwatch to stop it and put it into a watch posture. Use this before stepping time near unresolved contacts or exposed streets.",
+                    "Watch",
+                    "Select a command unit and press Watch to stop it and put it into a watch posture. It does not auto-fire; use Fire for a specific target.",
                     symbol: "eye.fill"
                 )
                 howToPlayRow(
                     "Firing",
-                    "Select a command unit, then use Fire in Contact Reports on an opposing unit contact. Fire checks line of sight, range, ammunition, cover, suppression, casualties, and civilian risk.",
+                    "Select a command unit, press Fire, then click a highlighted opposing contact. Fire checks line of sight, range, ammunition, cover, suppression, casualties, and civilian risk.",
                     symbol: "scope"
                 )
                 howToPlayRow(
@@ -500,6 +444,7 @@ struct ContentView: View {
     private func sideSelectionButton(_ side: MosulPlayableSide) -> some View {
         Button {
             model.startPlayableBattle(as: side)
+            presentMovementCoachIfNeeded()
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -528,6 +473,7 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 commandPanel
+                selectedCommandPanel
                 rulesPanel
                 scorePanel
                 afterActionPanel
@@ -577,6 +523,7 @@ struct ContentView: View {
                     ForEach(MosulPlayableSide.allCases) { side in
                         Button(side.title) {
                             model.startPlayableBattle(as: side)
+                            presentMovementCoachIfNeeded()
                         }
                         .accessibilityHint("Switch command side to \(side.title).")
                     }
@@ -595,8 +542,93 @@ struct ContentView: View {
 
             Divider()
 
-            metricRow("Mode", model.mode.rawValue)
+            metricRow("Targeting", model.mode.rawValue)
             metricRow("Command State", model.selectedUnitCanReceiveOrders ? "Ready" : "Select command unit")
+        }
+    }
+
+    private var selectedCommandPanel: some View {
+        panel("Selected Unit Commands") {
+            if let unit = model.selectedUnit, model.canIssueOrders(to: unit) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(model.playerFacingUnitName(unit))
+                                .font(.caption.weight(.semibold))
+                            Text(model.selectedUnitPendingOrderHint)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 8)
+                    }
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 6)], spacing: 6) {
+                        Button {
+                            movementCoachDismissed = true
+                            showMovementCoach = false
+                            model.beginMoveOrder()
+                        } label: {
+                            Label("Move", systemImage: "arrow.up.right")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .keyboardShortcut("m", modifiers: [.command])
+                        .help("Choose a destination on the map.")
+                        .accessibilityHint("Starts movement targeting for the selected unit.")
+                        .popover(isPresented: movementCoachBinding, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                            movementCoachView
+                        }
+
+                        unitCommandButton("Investigate", symbol: "magnifyingglass") {
+                            model.beginInvestigateOrder()
+                        }
+                        .keyboardShortcut("i", modifiers: [.command])
+
+                        unitCommandButton("Fire", symbol: "scope") {
+                            model.beginFireOrder()
+                        }
+                        .keyboardShortcut("f", modifiers: [.command])
+
+                        unitCommandButton("Watch", symbol: "eye.fill") {
+                            model.issueOverwatch()
+                        }
+                        .keyboardShortcut("o", modifiers: [.command])
+
+                        unitCommandButton("Hold", symbol: "hand.raised.fill") {
+                            model.issueHold()
+                        }
+                        .keyboardShortcut("h", modifiers: [.command])
+
+                        unitCommandButton("Rally", symbol: "cross.case.fill") {
+                            model.issueRally()
+                        }
+                        .keyboardShortcut("r", modifiers: [.command])
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    if model.hasActiveTargetingMode {
+                        Button {
+                            model.cancelTargeting()
+                        } label: {
+                            Label("Cancel Targeting", systemImage: "xmark.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            } else if let unit = model.selectedUnit {
+                Text("\(model.playerFacingUnitName(unit)) is visible intelligence only. Select one of your command units to issue orders.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Select one of your command units. Its available orders appear here as buttons.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -604,17 +636,17 @@ struct ContentView: View {
         panel("How Orders Work") {
             orderRuleRow(
                 "Movement",
-                "Select your unit, choose Move, click the map, then press Step. The unit follows the route over later ticks; traffic, buildings, and upper-level routes can slow or block it.",
+                "Select your unit, press Move, click the map, then press Step. A dashed target line appears before the unit moves; traffic, buildings, and upper-level routes can slow or block it.",
                 symbol: "arrow.up.right"
             )
             orderRuleRow(
-                "Overwatch",
-                "Select your unit and press Overwatch. It cancels movement and keeps the unit watching from its current position; it is a posture, not a map-target click.",
+                "Watch",
+                "Select your unit and press Watch. It cancels movement and keeps the unit watching from its current position; it is a posture, not automatic reaction fire.",
                 symbol: "eye.fill"
             )
             orderRuleRow(
                 "Fire",
-                "Select your unit, then press Fire on an opposing Contact Report. The shot only resolves if the selected unit has line of sight, range, ammunition, and an eligible shooter.",
+                "Select your unit, press Fire, then click a highlighted opposing contact. The shot resolves only with line of sight, range, ammunition, and an eligible shooter.",
                 symbol: "scope"
             )
         }
@@ -851,6 +883,92 @@ struct ContentView: View {
         .accessibilityLabel(title)
     }
 
+    private func unitCommandButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+        } label: {
+            Label(title, systemImage: symbol)
+                .frame(maxWidth: .infinity)
+        }
+        .help(title)
+        .accessibilityLabel(title)
+    }
+
+    private var movementCoachBinding: Binding<Bool> {
+        Binding(
+            get: { showMovementCoach },
+            set: { isPresented in
+                showMovementCoach = isPresented
+                if !isPresented {
+                    movementCoachDismissed = true
+                }
+            }
+        )
+    }
+
+    private var movementCoachView: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.blue)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Movement")
+                        .font(.headline)
+                    Text("Movement is deliberate. First choose Move, then click a destination on the map. The dashed line is the pending order; the unit moves only after you press Step.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Label("1. Press Move", systemImage: "1.circle.fill")
+                Label("2. Click the destination", systemImage: "2.circle.fill")
+                Label("3. Press Step: Execute", systemImage: "3.circle.fill")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            HStack {
+                Button("Dismiss") {
+                    movementCoachDismissed = true
+                    showMovementCoach = false
+                }
+                Spacer()
+                Button {
+                    movementCoachDismissed = true
+                    showMovementCoach = false
+                    model.beginMoveOrder()
+                } label: {
+                    Label("Start Move", systemImage: "arrow.up.right")
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(12)
+        .frame(width: 320, alignment: .leading)
+    }
+
+    private func presentMovementCoachIfNeeded() {
+        guard !movementCoachDismissed,
+              !showHowToPlay,
+              model.playableSide != nil,
+              model.selectedUnitCanReceiveOrders,
+              let selectedUnit = model.selectedUnit else {
+            return
+        }
+
+        guard movementCoachUnitID != selectedUnit.id else {
+            return
+        }
+
+        movementCoachUnitID = selectedUnit.id
+        showMovementCoach = true
+    }
+
     private func orderRuleRow(_ title: String, _ message: String, symbol: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: symbol)
@@ -999,8 +1117,8 @@ struct ContentView: View {
         }
     }
 
-    private func handleCommandControl(_ tip: CommandControlTip, action: () -> Void) {
-        if presentCommandControlTipIfNeeded(tip) {
+    private func handleCommandControl(_ tip: CommandControlTip, showTipFirst: Bool = true, action: () -> Void) {
+        if showTipFirst, presentCommandControlTipIfNeeded(tip) {
             return
         }
 
@@ -1107,7 +1225,7 @@ private enum CommandControlTip: String, Hashable, Identifiable {
         case .hold:
             return "Hold"
         case .overwatch:
-            return "Overwatch"
+            return "Watch"
         case .rally:
             return "Rally"
         case .step:
@@ -1153,7 +1271,7 @@ private enum CommandControlTip: String, Hashable, Identifiable {
         case .hold:
             return "Orders the selected command unit to stay in place. Use it when the unit should secure ground instead of drifting toward another task."
         case .overwatch:
-            return "Orders the selected command unit to stop moving and watch from its current position. Use Contact Reports to Fire at a specific opposing unit contact."
+            return "Orders the selected command unit to stop moving and watch from its current position. It is not automatic reaction fire; use Fire for a specific opposing contact."
         case .rally:
             return "Attempts to reduce suppression on the selected command unit so it can keep acting effectively."
         case .step:

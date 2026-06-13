@@ -204,6 +204,7 @@ enum MosulMapMode: String, CaseIterable, Identifiable {
     case select = "Select"
     case move = "Move"
     case investigate = "Investigate"
+    case fire = "Fire"
 
     var id: String { rawValue }
 
@@ -215,6 +216,8 @@ enum MosulMapMode: String, CaseIterable, Identifiable {
             return "arrow.up.right"
         case .investigate:
             return "magnifyingglass"
+        case .fire:
+            return "scope"
         }
     }
 
@@ -226,6 +229,8 @@ enum MosulMapMode: String, CaseIterable, Identifiable {
             return "Click the map to set a movement target."
         case .investigate:
             return "Click the map to investigate a contact or terrain cue."
+        case .fire:
+            return "Click a highlighted opposing contact to fire with the selected unit."
         }
     }
 }
@@ -544,6 +549,72 @@ final class MosulGameModel: ObservableObject {
         return "\(playerFacingUnitName(selectedUnit)) is available as intel only; select a \(playableSide.title) unit for orders."
     }
 
+    var hasActiveTargetingMode: Bool {
+        mode != .select
+    }
+
+    var selectedUnitHasPendingOrder: Bool {
+        guard selectedUnitCanReceiveOrders, let selectedUnit else {
+            return false
+        }
+
+        return selectedUnit.hasTarget
+    }
+
+    var selectedUnitPendingOrderHint: String {
+        guard let selectedUnit, selectedUnitCanReceiveOrders else {
+            return "Select a command unit to issue orders."
+        }
+
+        guard selectedUnit.hasTarget else {
+            return "No pending map order. Choose Move, Investigate, or Fire."
+        }
+
+        return "\(orderName(selectedUnit.order)) target: \(playerFacingPosition(x: selectedUnit.targetX, y: selectedUnit.targetY)). Press Step to execute movement over time."
+    }
+
+    var targetingBannerTitle: String {
+        switch mode {
+        case .select:
+            return "Select Unit"
+        case .move:
+            return "Choose Destination"
+        case .investigate:
+            return "Choose Investigation Point"
+        case .fire:
+            return "Choose Fire Target"
+        }
+    }
+
+    var targetingBannerMessage: String {
+        guard selectedUnitCanReceiveOrders, let selectedUnit else {
+            return "Select a \(commandSideTitle) unit before issuing orders."
+        }
+
+        let unitName = playerFacingUnitName(selectedUnit)
+        switch mode {
+        case .select:
+            return "Click a unit or contact to inspect it."
+        case .move:
+            return "\(unitName): click the map to set a destination. A dashed line appears; press Step to move."
+        case .investigate:
+            return "\(unitName): click a suspicious contact, danger area, or task. Press Step to approach cautiously."
+        case .fire:
+            if fireTargetContacts.isEmpty {
+                return "\(unitName): no highlighted fire targets are visible. Investigate contacts, advance time, or cancel targeting."
+            }
+            return "\(unitName): click a highlighted opposing contact. Line of sight, range, ammunition, and civilian risk are checked."
+        }
+    }
+
+    var targetingBannerSymbol: String {
+        mode.symbolName
+    }
+
+    var fireTargetContacts: [MosulContact] {
+        playerVisibleContacts.filter(canFire)
+    }
+
     var hiddenEnemyUnitCount: Int {
         units.filter { unit in
             guard let playableSide else { return false }
@@ -627,6 +698,34 @@ final class MosulGameModel: ObservableObject {
 
         mode = nextMode
         playerNotice = nextMode.prompt
+    }
+
+    func beginMoveOrder() {
+        setMode(.move)
+    }
+
+    func beginInvestigateOrder() {
+        setMode(.investigate)
+    }
+
+    func beginFireOrder() {
+        guard selectedUnitCanReceiveOrders else {
+            mode = .select
+            playerNotice = "Select a \(commandSideTitle) unit before firing."
+            return
+        }
+
+        mode = .fire
+        if fireTargetContacts.isEmpty {
+            playerNotice = "Fire targeting active. No valid opposing unit contacts are visible yet."
+        } else {
+            playerNotice = "Fire targeting active. Click a highlighted opposing contact."
+        }
+    }
+
+    func cancelTargeting() {
+        mode = .select
+        playerNotice = "Targeting cancelled."
     }
 
     func isUnitPlayerVisible(_ unit: MosulUnit) -> Bool {
@@ -855,7 +954,7 @@ final class MosulGameModel: ObservableObject {
     }
 
     func issueOverwatch() {
-        issueOrder(6, label: "Overwatch")
+        issueOrder(6, label: "Watch")
     }
 
     func issueSearch(_ interaction: MosulInteraction) {
@@ -950,6 +1049,36 @@ final class MosulGameModel: ObservableObject {
         }
     }
 
+    func fireAtMapPoint(x: CGFloat, y: CGFloat) {
+        guard selectedUnitCanReceiveOrders else {
+            playerNotice = "Select a \(commandSideTitle) unit before firing."
+            mode = .select
+            return
+        }
+
+        guard let contact = nearestFireTargetContact(x: x, y: y) else {
+            playerNotice = "No valid fire target at that point. Click a highlighted opposing contact or cancel targeting."
+            return
+        }
+
+        fireAtContact(contact)
+        mode = .select
+    }
+
+    private func nearestFireTargetContact(x: CGFloat, y: CGFloat) -> MosulContact? {
+        let toleranceM = max(18, min(mapWidth, mapHeight) * 0.055)
+        let candidates = fireTargetContacts.map { contact in
+            let dx = contact.x - x
+            let dy = contact.y - y
+            return (contact: contact, distance: sqrt(dx * dx + dy * dy))
+        }
+
+        return candidates
+            .filter { $0.distance <= toleranceM }
+            .min { $0.distance < $1.distance }?
+            .contact
+    }
+
     func handleMapTap(x: CGFloat, y: CGFloat) {
         guard let engine else { return }
 
@@ -984,6 +1113,9 @@ final class MosulGameModel: ObservableObject {
             mode = .select
             refresh()
             playerNotice = "Investigation target set for \(unitName)."
+            return
+        case .fire:
+            fireAtMapPoint(x: x, y: y)
             return
         }
     }
@@ -1360,7 +1492,7 @@ func orderName(_ order: Int32) -> String {
     case 3: return "Assault"
     case 4: return "Fire"
     case 5: return "Suppress"
-    case 6: return "Overwatch"
+    case 6: return "Watch"
     case 7: return "Breach"
     case 8: return "Rally"
     case 9: return "Withdraw"

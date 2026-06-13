@@ -60,6 +60,7 @@ struct TacticalMapView: View {
                 )
 
                 mapLevelControls
+                targetingBanner
                 zoomControls
             }
             .accessibilityElement(children: .contain)
@@ -255,6 +256,55 @@ struct TacticalMapView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Map zoom controls")
+    }
+
+    private var targetingBanner: some View {
+        Group {
+            if model.hasActiveTargetingMode {
+                HStack(alignment: .center, spacing: 9) {
+                    Image(systemName: model.targetingBannerSymbol)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 24, height: 24)
+                        .background(Color.blue.opacity(0.92), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.targetingBannerTitle)
+                            .font(.caption.weight(.semibold))
+                        Text(model.targetingBannerMessage)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 10)
+
+                    Button {
+                        model.cancelTargeting()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .frame(width: 18, height: 18)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cancel targeting")
+                    .accessibilityLabel("Cancel targeting")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: 460, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+                }
+                .padding(.top, 58)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(model.targetingBannerTitle)
+                .accessibilityValue(model.targetingBannerMessage)
+            }
+        }
     }
 
     private var zoomPercent: Int {
@@ -499,6 +549,29 @@ struct TacticalMapView: View {
         let symbol = markerSymbol(contact.markerID, fallback: contactSymbol(contact))
 
         return ZStack {
+            if model.mode == .fire && model.canFire(at: contact) {
+                Circle()
+                    .fill(Color.yellow.opacity(0.18))
+                    .frame(width: 52, height: 52)
+                Circle()
+                    .stroke(Color.white.opacity(0.95), lineWidth: 5.0)
+                    .frame(width: 48, height: 48)
+                Circle()
+                    .stroke(Color.yellow.opacity(1.0), style: StrokeStyle(lineWidth: 3.0, dash: [5, 3]))
+                    .frame(width: 48, height: 48)
+                Text("FIRE")
+                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.black.opacity(0.88))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.yellow.opacity(0.98), in: RoundedRectangle(cornerRadius: 3))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 3)
+                            .stroke(Color.white.opacity(0.9), lineWidth: 0.8)
+                    }
+                    .offset(y: 31)
+            }
+
             RoundedRectangle(cornerRadius: 2)
                 .fill(color.opacity(contact.resolved ? 0.24 : 0.40))
                 .frame(width: 26, height: 26)
