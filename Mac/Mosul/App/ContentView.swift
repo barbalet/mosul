@@ -12,16 +12,62 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
-            gameLayout
-                .disabled(model.playableSide == nil)
-                .blur(radius: model.playableSide == nil ? 1.2 : 0)
+        Group {
+            if let issue = model.releaseIssue {
+                releaseIssueView(issue)
+            } else {
+                ZStack {
+                    gameLayout
+                        .disabled(model.playableSide == nil)
+                        .blur(radius: model.playableSide == nil ? 1.2 : 0)
 
-            if model.playableSide == nil {
-                sideSelectionOverlay
-                    .padding(24)
+                    if model.playableSide == nil {
+                        sideSelectionOverlay
+                            .padding(24)
+                    }
+                }
             }
         }
+    }
+
+    private func releaseIssueView(_ issue: MosulReleaseIssue) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.orange)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(issue.title)
+                        .font(.title2.weight(.semibold))
+                    Text(issue.message)
+                        .font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Divider()
+
+            Label(issue.recovery, systemImage: "wrench.and.screwdriver.fill")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(issue.diagnostic)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(22)
+        .frame(maxWidth: 680, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var gameLayout: some View {

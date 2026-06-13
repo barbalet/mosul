@@ -53,16 +53,16 @@ struct TacticalMapView: View {
 
     private func mapBaseImage() -> NSImage? {
         if let basePath = model.mapLevels.first(where: { $0.isBase && !$0.imagePath.isEmpty })?.imagePath,
-           let image = NSImage(contentsOfFile: basePath) {
+           let image = MosulImageCache.shared.image(atPath: basePath) {
             return image
         }
 
-        return NSImage(contentsOfFile: model.mapOverviewPath)
+        return MosulImageCache.shared.image(atPath: model.mapOverviewPath)
     }
 
     @ViewBuilder
     private func mapLevelImage(_ level: MosulMapLevel, layout: MapLayout) -> some View {
-        if let image = NSImage(contentsOfFile: level.imagePath) {
+        if let image = MosulImageCache.shared.image(atPath: level.imagePath) {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
@@ -890,7 +890,7 @@ struct TacticalMapView: View {
         let size = unitSpriteSize(unit, layout: layout)
 
         if let sprite = spriteManifest.unitSprite(for: unit),
-           let image = NSImage(contentsOfFile: sprite.path) {
+           let image = MosulImageCache.shared.image(atPath: sprite.path) {
             ZStack {
                 Circle()
                     .fill(sideColor(unit.side).opacity(0.16))
@@ -925,7 +925,7 @@ struct TacticalMapView: View {
         let color = trafficVehicleColor(vehicle)
 
         if let sprite = spriteManifest.trafficVehicleSprite(for: vehicle),
-           let image = NSImage(contentsOfFile: sprite.path) {
+           let image = MosulImageCache.shared.image(atPath: sprite.path) {
             ZStack {
                 Capsule()
                     .fill(color.opacity(vehicle.isMoving ? 0.18 : 0.10))
@@ -1092,6 +1092,63 @@ private struct MapLayout {
     let rect: CGRect
     let size: CGSize
     let scale: CGFloat
+}
+
+struct MosulImageCacheStats {
+    let loadedImageCount: Int
+    let missingImageCount: Int
+    let loadedFileBytes: Int64
+}
+
+final class MosulImageCache {
+    static let shared = MosulImageCache()
+
+    private var images: [String: NSImage] = [:]
+    private var missingPaths: Set<String> = []
+    private var fileBytesByPath: [String: Int64] = [:]
+    private let fileManager = FileManager.default
+
+    private init() {}
+
+    func image(atPath path: String) -> NSImage? {
+        guard !path.isEmpty else {
+            return nil
+        }
+
+        if let image = images[path] {
+            return image
+        }
+
+        if missingPaths.contains(path) {
+            return nil
+        }
+
+        guard let image = NSImage(contentsOfFile: path) else {
+            missingPaths.insert(path)
+            return nil
+        }
+
+        images[path] = image
+        if let attributes = try? fileManager.attributesOfItem(atPath: path),
+           let size = attributes[.size] as? NSNumber {
+            fileBytesByPath[path] = size.int64Value
+        }
+        return image
+    }
+
+    func reset() {
+        images.removeAll()
+        missingPaths.removeAll()
+        fileBytesByPath.removeAll()
+    }
+
+    func stats() -> MosulImageCacheStats {
+        MosulImageCacheStats(
+            loadedImageCount: images.count,
+            missingImageCount: missingPaths.count,
+            loadedFileBytes: fileBytesByPath.values.reduce(0, +)
+        )
+    }
 }
 
 private struct Triangle: Shape {

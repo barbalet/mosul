@@ -355,6 +355,85 @@ struct MosulRuntimeResources {
     }
 }
 
+struct MosulReleaseIssue {
+    let title: String
+    let message: String
+    let recovery: String
+    let diagnostic: String
+
+    var reportLines: [String] {
+        [
+            "title=\(Self.reportValue(title))",
+            "message=\(Self.reportValue(message))",
+            "recovery=\(Self.reportValue(recovery))",
+            "diagnostic=\(Self.reportValue(diagnostic))"
+        ]
+    }
+
+    static func unsupportedPlatform(version: OperatingSystemVersion) -> MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "This Mac is not supported",
+            message: "MOSUL requires macOS 14 or later for the current SwiftUI renderer and bundled runtime checks.",
+            recovery: "Update macOS, or use a Mac that supports macOS 14 or later.",
+            diagnostic: "Detected macOS \(version.majorVersion).\(version.minorVersion).\(version.patchVersion)."
+        )
+    }
+
+    static func runtimeLoadFailure(
+        message: String,
+        runtimeResources: MosulRuntimeResources
+    ) -> MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "MOSUL cannot load the demo data",
+            message: "The Market / Commercial Streets scenario could not be opened from \(runtimeResources.source.description).",
+            recovery: "Reinstall MosulGame, or restore Contents/Resources/mosul-runtime in the app bundle. Development builds can also restore the modernerKrieg checkout.",
+            diagnostic: "\(message) Runtime root: \(runtimeResources.runtimeAssetRoot)"
+        )
+    }
+
+    static func missingRuntimeFile(path: String) -> MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "MOSUL runtime file is missing",
+            message: "A required scenario, map, or sprite file is not present in the app bundle.",
+            recovery: "Reinstall MosulGame from a complete release build, then run the runtime-resource check again.",
+            diagnostic: path
+        )
+    }
+
+    static func bundledRuntimeRequired(actualSource: String) -> MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "MOSUL bundled runtime is missing",
+            message: "This copy of MosulGame did not load its bundled scenario and art data.",
+            recovery: "Use a packaged MosulGame.app that contains Contents/Resources/mosul-runtime, or rebuild the app bundle before distribution.",
+            diagnostic: "Loaded \(actualSource) instead of bundled app resources."
+        )
+    }
+
+    static var noMapLevel: MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "MOSUL map data is incomplete",
+            message: "The demo scenario loaded, but no base map level was available for rendering.",
+            recovery: "Rebuild the runtime resource payload and verify the map manifest before shipping.",
+            diagnostic: "No base MosulMapLevel with an image path was loaded."
+        )
+    }
+
+    static var noUnitSprite: MosulReleaseIssue {
+        MosulReleaseIssue(
+            title: "MOSUL unit art is incomplete",
+            message: "The demo scenario loaded, but no unit sprite could be resolved from the runtime sprite manifest.",
+            recovery: "Regenerate or recopy the runtime sprite payload before shipping.",
+            diagnostic: "No playable unit resolved to a runtime PNG sprite."
+        )
+    }
+
+    static func reportValue(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+    }
+}
+
 @MainActor
 final class MosulGameModel: ObservableObject {
     @Published var scenarioName = "MOSUL"
@@ -408,6 +487,21 @@ final class MosulGameModel: ObservableObject {
 
     var selectedUnit: MosulUnit? {
         units.first(where: { $0.selected })
+    }
+
+    var releaseIssue: MosulReleaseIssue? {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        if !ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
+        ) {
+            return .unsupportedPlatform(version: version)
+        }
+
+        if !lastError.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .runtimeLoadFailure(message: lastError, runtimeResources: runtimeResources)
+        }
+
+        return nil
     }
 
     var selectedUnitCanReceiveOrders: Bool {

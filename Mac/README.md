@@ -67,6 +67,17 @@ scripts/check_mosulgame_balance_sweep.py
 See `docs/mosulgame_playthrough_balance.md` for report paths and current
 thresholds.
 
+The standalone Release app also has performance-budget and release-error
+checks:
+
+```sh
+scripts/check_mosulgame_performance_budget.sh
+scripts/check_mosulgame_release_errors.sh
+```
+
+See `docs/mosulgame_release_budget_errors.md` for the current launch/render
+budget ceilings and broken-bundle error expectations.
+
 `AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a clean result, pressured partial, tick limit, or watchdog stall.
 
 Run repeatable AIBattle pacing/readability evidence from the repository root:

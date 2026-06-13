@@ -22,8 +22,10 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
 - Completed: Step 15 - Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
 - Completed: Step 16 - Add scripted outcome-band and AI balance-sweep evidence for the playable release loop.
-- Active: Step 17 - Establish the standalone performance budget for launch, first render, memory, and map/sprite loading.
-- Active detail: Measure the Release app before adding caches or lazy-loading so cycle 15 work is tied to observed bottlenecks.
+- Completed: Step 17 - Establish the standalone performance budget for launch, first render, memory, and map/sprite loading.
+- Completed: Step 18 - Add release-quality missing-runtime and diagnostic error handling for broken standalone app bundles.
+- Active: Step 19 - Review accessibility, UI polish, and minimum-window behavior for the playable standalone app.
+- Active detail: Start cycle 17 with keyboard/VoiceOver labels, contrast, scrolling panels, and resizable-window checks.
 - Last advanced: 2026-06-13
 
 ## Standalone Release Build Plan
@@ -39,8 +41,8 @@ A cycle here means one focused implementation-and-verification loop that leaves
 the repository buildable. Some cycles can overlap, but each should land with
 tests, scripts, or release artifacts updated in the same change.
 
-Current standalone release cycle: cycle 15, Performance budget. Completed
-standalone release cycles: cycles 1-14 on 2026-06-13.
+Current standalone release cycle: cycle 17, Accessibility and UI polish.
+Completed standalone release cycles: cycles 1-16 on 2026-06-13.
 
 ### Standalone Release Definition
 
@@ -84,9 +86,9 @@ The standalone build is done when:
 | 12 | completed 2026-06-12 | Fog of war and side context | Finish Step 15: hide or soften enemy state based on chosen side and label U.S.-perspective scoring separately from chosen-side command context. | MosulGame now renders player-visible units and contact reports by chosen side, hides unconfirmed opposing units, redacts opposing order/strength/suppression/route details, and labels score/after-action panels as U.S.-perspective context separate from the command side. |
 | 13 | completed 2026-06-13 | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | `scripts/check_mosulgame_outcome_bands.py` builds the headless tools, runs deterministic scripted success/partial/failure playthroughs, verifies after-action narratives and replay end events, and writes `snapshots/evidence/mosul-outcome-bands.txt`. |
 | 14 | completed 2026-06-13 | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | `scripts/check_mosulgame_balance_sweep.py` runs a five-seed public-demo AI sweep, fails on stalls, weak score floor, weak contact/risk pressure, or early trivial settlement, and writes `snapshots/evidence/mosul-balance-sweep.txt`. |
-| 15 | next | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | Release build stays inside documented launch/memory/render budgets on Apple Silicon and Intel. |
-| 16 | pending | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | A broken bundle fails with actionable user-facing errors and diagnostic logs. |
-| 17 | pending | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | The app remains usable at minimum window size and with keyboard/VoiceOver basics. |
+| 15 | completed 2026-06-13 | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | `scripts/check_mosulgame_performance_budget.sh` builds the Release app, launches the bundled-runtime performance mode, verifies launch/model/sprite/first-render/total/memory/map-PNG budgets, uses the shared tactical-map image cache for repeated PNG access, and writes `snapshots/evidence/mosul-performance-budget.txt`. |
+| 16 | completed 2026-06-13 | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | `scripts/check_mosulgame_release_errors.sh` verifies an intact Release app runtime check, breaks a copied app bundle by removing the bundled scenario, requires a structured `ok=false` report with player-facing title/message/recovery plus diagnostics, and writes `snapshots/evidence/mosul-release-errors.txt`. |
+| 17 | next | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | The app remains usable at minimum window size and with keyboard/VoiceOver basics. |
 | 18 | pending | Release candidate build script | Add or update a release script that builds Apple Silicon and Intel app bundles from a clean checkout with bundled resources and ad-hoc signing. | A local command produces both unsigned/ad-hoc app bundles and verifies architecture with `lipo`. |
 | 19 | pending | DMG packaging | Automate DMG creation with stable volume names, app bundle placement, checksum output, and overwrite-safe `dist/` behavior. | `dist/` contains reproducible Apple Silicon and Intel DMGs plus SHA-256 sums. |
 | 20 | pending | Developer ID and notarization | Keep ad-hoc signing available, but document and optionally script Developer ID signing, notary submission, stapling, and verification. | `RELEASE.md` can be followed for both local unsigned testing and public notarized release. |
@@ -105,8 +107,10 @@ The standalone build is done when:
   player-state evidence rendering, and a report that validates player-facing
   state.
 - Scripted outcome-band and balance-sweep checks now cover current result
-  narratives and AI pacing pressure; later cycles still need measured
-  performance, release error handling, and broader UI polish.
+  narratives and AI pacing pressure.
+- The Release app now has a first-render performance budget check and a
+  broken-bundle release-error check; later cycles still need broader UI polish,
+  packaging, signing, and clean-machine QA.
 - Release packaging currently assumes the submodule source archive is attached,
   but the app bundle itself still needs its own curated runtime payload.
 
@@ -144,6 +148,12 @@ The standalone build is done when:
 - `scripts/check_mosulgame_balance_sweep.py` runs the five-seed public-demo AI
   pacing sweep with stall, score-floor, contact-pressure, risk-pressure, and
   early-settlement guards.
+- `scripts/check_mosulgame_performance_budget.sh` builds the Release
+  MosulGame app, requires bundled runtime resources, measures first tactical-map
+  render performance and memory, and writes ignored budget evidence.
+- `scripts/check_mosulgame_release_errors.sh` verifies that a deliberately
+  broken copied app bundle reports player-facing recovery text and
+  diagnostic report evidence.
 - `scripts/capture_snapshot_evidence.sh` builds MosulGame, validates the app bundle payload, runs a deterministic player-path LaunchServices app launch under a timeout watchdog, and writes ignored PNG plus text-report evidence under `snapshots/evidence/`.
 - MosulGame's first-run overlay now frames the Market / Commercial Streets scenario with side choice, objective summary, U.S.-perspective scoring context, and clear start controls before enabling the tactical map.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.

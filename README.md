@@ -147,6 +147,20 @@ scripts/check_mosulgame_balance_sweep.py
 
 These checks build the `modernerKrieg` headless preset, verify success/partial/failure after-action bands and public-demo AI pacing pressure, then write ignored text evidence under `snapshots/evidence/`. See `docs/mosulgame_playthrough_balance.md` for the current thresholds and report paths.
 
+The standalone Release app has performance-budget and release-error evidence
+checks:
+
+```sh
+scripts/check_mosulgame_performance_budget.sh
+scripts/check_mosulgame_release_errors.sh
+```
+
+These checks build `MosulGame.app`, require bundled runtime resources, measure
+first tactical-map render and memory budgets, and verify that a broken app
+bundle reports a player-facing recovery message plus diagnostic detail. See
+`docs/mosulgame_release_budget_errors.md` for the current budget ceilings and
+failure-case expectations.
+
 ## Mac App
 
 The Mac app source is kept in `mosul`, not in `modernerKrieg`:
