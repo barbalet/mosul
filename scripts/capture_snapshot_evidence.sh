@@ -233,24 +233,19 @@ terminate_snapshot_app() {
 run_with_watchdog() {
   local timeout_seconds="$1"
   shift
-  local command_pid
   local watchdog_pid
   local status
 
-  "$@" &
-  command_pid=$!
-
   (
     sleep "$timeout_seconds"
-    if kill -0 "$command_pid" 2>/dev/null; then
+    if [[ ! -s "$OUTPUT_PATH" || ! -s "$REPORT_PATH" ]]; then
       echo "error: snapshot evidence timed out after ${timeout_seconds}s" >&2
-      kill -TERM "$command_pid" 2>/dev/null || true
       terminate_snapshot_app
     fi
   ) &
   watchdog_pid=$!
 
-  if wait "$command_pid"; then
+  if "$@"; then
     status=0
   else
     status=$?

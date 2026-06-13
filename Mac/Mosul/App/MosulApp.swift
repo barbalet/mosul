@@ -86,7 +86,7 @@ struct MosulApp: App {
         WindowGroup {
             if evidenceRequest == nil && !runtimeCheckRequested && !performanceCheckRequested {
                 ContentView()
-                    .frame(minWidth: 1180, minHeight: 760)
+                    .frame(minWidth: 980, minHeight: 680)
             } else {
                 Text(commandModeTitle)
                     .frame(width: 320, height: 120)

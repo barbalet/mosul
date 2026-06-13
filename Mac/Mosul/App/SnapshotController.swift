@@ -373,17 +373,41 @@ private struct PlayerEvidenceSnapshotView: View {
     @ObservedObject var model: MosulGameModel
 
     var body: some View {
-        HStack(spacing: 0) {
-            TacticalMapView(model: model)
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GeometryReader { proxy in
+            let compactLayout = proxy.size.width < 1100 || proxy.size.height < 720
+            let panelHeight = min(280, max(200, proxy.size.height * 0.36))
+            let panelWidth = min(360, max(300, proxy.size.width * 0.28))
 
-            Divider()
+            if compactLayout {
+                VStack(spacing: 0) {
+                    TacticalMapView(model: model)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            evidencePanel
-                .frame(width: 360)
+                    Divider()
+
+                    ScrollView {
+                        evidencePanel
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: panelHeight)
+                }
+            } else {
+                HStack(spacing: 0) {
+                    TacticalMapView(model: model)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Divider()
+
+                    evidencePanel
+                        .frame(width: panelWidth)
+                }
+            }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("MOSUL evidence snapshot")
     }
 
     private var evidencePanel: some View {

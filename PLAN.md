@@ -24,8 +24,10 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 16 - Add scripted outcome-band and AI balance-sweep evidence for the playable release loop.
 - Completed: Step 17 - Establish the standalone performance budget for launch, first render, memory, and map/sprite loading.
 - Completed: Step 18 - Add release-quality missing-runtime and diagnostic error handling for broken standalone app bundles.
-- Active: Step 19 - Review accessibility, UI polish, and minimum-window behavior for the playable standalone app.
-- Active detail: Start cycle 17 with keyboard/VoiceOver labels, contrast, scrolling panels, and resizable-window checks.
+- Completed: Step 19 - Review accessibility, UI polish, and minimum-window behavior for the playable standalone app.
+- Completed: Step 20 - Add release-candidate Apple Silicon and Intel app bundle builds with architecture verification.
+- Active: Step 21 - Automate DMG packaging for the verified release-candidate app bundles.
+- Active detail: Start cycle 19 with stable DMG volume names, app bundle placement, checksums, and overwrite-safe `dist/` behavior.
 - Last advanced: 2026-06-13
 
 ## Standalone Release Build Plan
@@ -41,8 +43,8 @@ A cycle here means one focused implementation-and-verification loop that leaves
 the repository buildable. Some cycles can overlap, but each should land with
 tests, scripts, or release artifacts updated in the same change.
 
-Current standalone release cycle: cycle 17, Accessibility and UI polish.
-Completed standalone release cycles: cycles 1-16 on 2026-06-13.
+Current standalone release cycle: cycle 19, DMG packaging.
+Completed standalone release cycles: cycles 1-18 on 2026-06-13.
 
 ### Standalone Release Definition
 
@@ -88,9 +90,9 @@ The standalone build is done when:
 | 14 | completed 2026-06-13 | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | `scripts/check_mosulgame_balance_sweep.py` runs a five-seed public-demo AI sweep, fails on stalls, weak score floor, weak contact/risk pressure, or early trivial settlement, and writes `snapshots/evidence/mosul-balance-sweep.txt`. |
 | 15 | completed 2026-06-13 | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | `scripts/check_mosulgame_performance_budget.sh` builds the Release app, launches the bundled-runtime performance mode, verifies launch/model/sprite/first-render/total/memory/map-PNG budgets, uses the shared tactical-map image cache for repeated PNG access, and writes `snapshots/evidence/mosul-performance-budget.txt`. |
 | 16 | completed 2026-06-13 | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | `scripts/check_mosulgame_release_errors.sh` verifies an intact Release app runtime check, breaks a copied app bundle by removing the bundled scenario, requires a structured `ok=false` report with player-facing title/message/recovery plus diagnostics, and writes `snapshots/evidence/mosul-release-errors.txt`. |
-| 17 | next | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | The app remains usable at minimum window size and with keyboard/VoiceOver basics. |
-| 18 | pending | Release candidate build script | Add or update a release script that builds Apple Silicon and Intel app bundles from a clean checkout with bundled resources and ad-hoc signing. | A local command produces both unsigned/ad-hoc app bundles and verifies architecture with `lipo`. |
-| 19 | pending | DMG packaging | Automate DMG creation with stable volume names, app bundle placement, checksum output, and overwrite-safe `dist/` behavior. | `dist/` contains reproducible Apple Silicon and Intel DMGs plus SHA-256 sums. |
+| 17 | completed 2026-06-13 | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | MosulGame now uses a responsive wide/compact layout with a `980x680` minimum window, keyboard shortcuts for core commands, VoiceOver labels/hints for the command bar, side selection, inspector, map controls, units, contacts, and tasks, and `scripts/check_mosulgame_accessibility_ui.sh` captures minimum-window evidence plus accessibility/shortcut guardrails. |
+| 18 | completed 2026-06-13 | Release candidate build script | Add or update a release script that builds Apple Silicon and Intel app bundles from a clean checkout with bundled resources and ad-hoc signing. | `scripts/build_mosulgame_release_candidate.sh` builds Release `arm64` and `x86_64` app bundles under `dist/release-candidate/<arch>/MosulGame.app`, validates bundled resources, ad-hoc signs by default, verifies signatures, and records `lipo` architecture checks in `snapshots/evidence/mosul-release-candidate.txt`. |
+| 19 | next | DMG packaging | Automate DMG creation with stable volume names, app bundle placement, checksum output, and overwrite-safe `dist/` behavior. | `dist/` contains reproducible Apple Silicon and Intel DMGs plus SHA-256 sums. |
 | 20 | pending | Developer ID and notarization | Keep ad-hoc signing available, but document and optionally script Developer ID signing, notary submission, stapling, and verification. | `RELEASE.md` can be followed for both local unsigned testing and public notarized release. |
 | 21 | pending | CI release dry run | Add a non-secret CI dry run that builds release configuration, validates bundled resources, and packages unsigned artifacts without notarization. | Pull requests prove release packaging stays healthy. |
 | 22 | pending | Clean-machine QA | Test the app from a fresh checkout, from outside the checkout, from a DMG, and after moving to `/Applications`; include at least one Intel or Rosetta check if hardware is unavailable. | QA notes record exact OS, architecture, app path, and pass/fail evidence. |
@@ -108,9 +110,10 @@ The standalone build is done when:
   state.
 - Scripted outcome-band and balance-sweep checks now cover current result
   narratives and AI pacing pressure.
-- The Release app now has a first-render performance budget check and a
-  broken-bundle release-error check; later cycles still need broader UI polish,
-  packaging, signing, and clean-machine QA.
+- The Release app now has first-render performance, broken-bundle error,
+  accessibility/minimum-window, and architecture-specific release-candidate
+  checks; later cycles still need DMG packaging, Developer ID signing,
+  notarization, and clean-machine QA.
 - Release packaging currently assumes the submodule source archive is attached,
   but the app bundle itself still needs its own curated runtime payload.
 
@@ -154,6 +157,13 @@ The standalone build is done when:
 - `scripts/check_mosulgame_release_errors.sh` verifies that a deliberately
   broken copied app bundle reports player-facing recovery text and
   diagnostic report evidence.
+- `scripts/check_mosulgame_accessibility_ui.sh` builds MosulGame, captures
+  `980x680` minimum-window evidence, and enforces keyboard/VoiceOver modifier
+  guardrails in the SwiftUI shell.
+- `scripts/build_mosulgame_release_candidate.sh` builds ad-hoc signed Release
+  candidates for Apple Silicon and Intel under
+  `dist/release-candidate/<arch>/MosulGame.app`, validates bundled resources,
+  and verifies each executable architecture with `lipo`.
 - `scripts/capture_snapshot_evidence.sh` builds MosulGame, validates the app bundle payload, runs a deterministic player-path LaunchServices app launch under a timeout watchdog, and writes ignored PNG plus text-report evidence under `snapshots/evidence/`.
 - MosulGame's first-run overlay now frames the Market / Commercial Streets scenario with side choice, objective summary, U.S.-perspective scoring context, and clear start controls before enabling the tactical map.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.
@@ -263,5 +273,12 @@ Do not pause engine development for a large new art pass. Add these assets only 
    - Active detail 2026-06-08: Use the updated `modernerKrieg` runtime level PNGs and multistorey mask metadata to add level-aware map overlays/toggles through the bridge without copying assets into the Mac tree.
 14. Done 2026-06-08: Add level-aware unit, contact, and interaction context to the Mac UI.
    - Active detail 2026-06-08: Use the C-core gameplay level IDs to label selected units, emphasize same-level versus vertical interactions, and tie the new upper-floor overlays to tactical state instead of visual toggles only.
-15. Active: Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
-   - Active detail 2026-06-08: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.
+15. Done 2026-06-13: Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
+   - Done detail 2026-06-13: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.
+16. Done 2026-06-13: Add scripted outcome-band and AI balance-sweep evidence for the playable release loop.
+17. Done 2026-06-13: Establish the standalone performance budget for launch, first render, memory, and map/sprite loading.
+18. Done 2026-06-13: Add release-quality missing-runtime and diagnostic error handling for broken standalone app bundles.
+19. Done 2026-06-13: Review accessibility, UI polish, and minimum-window behavior for the playable standalone app.
+20. Done 2026-06-13: Add release-candidate Apple Silicon and Intel app bundle builds with architecture verification.
+21. Active: Automate DMG packaging for the verified release-candidate app bundles.
+   - Active detail 2026-06-13: Add stable DMG volume names, app bundle placement, checksum output, and overwrite-safe `dist/` behavior.

@@ -68,105 +68,203 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Release issue")
+        .accessibilityHint("The app could not start the playable scenario and shows recovery details.")
     }
 
     private var gameLayout: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            HStack(spacing: 0) {
-                TacticalMapView(model: model)
-                    .padding(12)
+        GeometryReader { proxy in
+            let compactLayout = proxy.size.width < 1100 || proxy.size.height < 720
+            let inspectorWidth = min(340, max(300, proxy.size.width * 0.28))
+            let inspectorHeight = min(300, max(220, proxy.size.height * 0.36))
+
+            VStack(spacing: 0) {
+                header
                 Divider()
-                inspector
-                    .frame(width: 340)
+
+                if compactLayout {
+                    VStack(spacing: 0) {
+                        TacticalMapView(model: model)
+                            .padding(10)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .accessibilitySortPriority(2)
+
+                        Divider()
+
+                        inspector
+                            .frame(maxWidth: .infinity)
+                            .frame(height: inspectorHeight)
+                            .accessibilitySortPriority(1)
+                    }
+                } else {
+                    HStack(spacing: 0) {
+                        TacticalMapView(model: model)
+                            .padding(12)
+                            .accessibilitySortPriority(2)
+
+                        Divider()
+
+                        inspector
+                            .frame(width: inspectorWidth)
+                            .accessibilitySortPriority(1)
+                    }
+                }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("MOSUL tactical scenario")
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(MosulVersion.displayName)
-                        .font(.headline)
-                    Text("\(model.scenarioName)  |  \(model.commandSideTitle) vs \(model.opponentSideTitle)  |  Tick \(model.tick)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    headerTitleBlock
+
+                    Spacer(minLength: 12)
+
+                    commandControls
                 }
 
-                Spacer()
+                HStack(alignment: .top, spacing: 12) {
+                    headerTitleBlock
+                        .frame(minWidth: 220, alignment: .leading)
 
-                Picker("Map Mode", selection: modeBinding) {
-                    ForEach(MosulMapMode.allCases) { mode in
-                        Label(mode.rawValue, systemImage: mode.symbolName).tag(mode)
+                    Spacer(minLength: 4)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        commandControls
+                            .padding(.vertical, 1)
                     }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 270)
-                .help(model.mode.prompt)
-
-                Button {
-                    model.issueHold()
-                } label: {
-                    Label("Hold", systemImage: "hand.raised.fill")
-                }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-                .help("Hold the selected command unit in place.")
-
-                Button {
-                    model.issueOverwatch()
-                } label: {
-                    Label("Overwatch", systemImage: "eye.fill")
-                }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-                .help("Set the selected command unit to overwatch.")
-
-                Button {
-                    model.issueRally()
-                } label: {
-                    Label("Rally", systemImage: "cross.case.fill")
-                }
-                .disabled(!model.selectedUnitCanReceiveOrders)
-                .help("Rally the selected command unit.")
-
-                Divider()
-                    .frame(height: 24)
-
-                Button {
-                    model.step()
-                } label: {
-                    Label("Step", systemImage: "forward.frame.fill")
-                }
-                Button {
-                    model.runOpponentAI()
-                } label: {
-                    Label("Opponent Tick", systemImage: "cpu")
-                }
-                .disabled(model.playableSide == nil)
-                Button {
-                    model.runOpponentAI(steps: 10)
-                } label: {
-                    Label("Opponent x10", systemImage: "forward.end.fill")
-                }
-                .disabled(model.playableSide == nil)
-                Button {
-                    saveSnapshot()
-                } label: {
-                    Label("Snapshot", systemImage: "camera")
-                }
-                Button {
-                    model.resetPlayableBattle()
-                } label: {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Command controls")
+                    .accessibilityHint("Scroll horizontally for all tactical controls.")
                 }
             }
 
             commandStatusRow
         }
         .buttonStyle(.bordered)
+        .controlSize(.small)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var headerTitleBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(MosulVersion.displayName)
+                .font(.headline)
+                .lineLimit(1)
+            Text("\(model.scenarioName)  |  \(model.commandSideTitle) vs \(model.opponentSideTitle)  |  Tick \(model.tick)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(MosulVersion.displayName), \(model.scenarioName)")
+        .accessibilityValue("\(model.commandSideTitle) versus \(model.opponentSideTitle), tick \(model.tick)")
+    }
+
+    private var commandControls: some View {
+        HStack(spacing: 8) {
+            Picker("Map Mode", selection: modeBinding) {
+                ForEach(MosulMapMode.allCases) { mode in
+                    Label(mode.rawValue, systemImage: mode.symbolName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 250)
+            .help(model.mode.prompt)
+            .accessibilityLabel("Map mode")
+            .accessibilityValue(model.mode.rawValue)
+            .accessibilityHint(model.mode.prompt)
+
+            Button {
+                model.issueHold()
+            } label: {
+                Label("Hold", systemImage: "hand.raised.fill")
+            }
+            .disabled(!model.selectedUnitCanReceiveOrders)
+            .keyboardShortcut("h", modifiers: [.command])
+            .help("Hold the selected command unit in place.")
+            .accessibilityLabel("Hold selected unit")
+            .accessibilityHint("Orders the selected command unit to hold position.")
+
+            Button {
+                model.issueOverwatch()
+            } label: {
+                Label("Overwatch", systemImage: "eye.fill")
+            }
+            .disabled(!model.selectedUnitCanReceiveOrders)
+            .keyboardShortcut("o", modifiers: [.command])
+            .help("Set the selected command unit to overwatch.")
+            .accessibilityLabel("Set overwatch")
+            .accessibilityHint("Orders the selected command unit to watch for threats.")
+
+            Button {
+                model.issueRally()
+            } label: {
+                Label("Rally", systemImage: "cross.case.fill")
+            }
+            .disabled(!model.selectedUnitCanReceiveOrders)
+            .keyboardShortcut("r", modifiers: [.command])
+            .help("Rally the selected command unit.")
+            .accessibilityLabel("Rally selected unit")
+            .accessibilityHint("Attempts to reduce suppression for the selected command unit.")
+
+            Divider()
+                .frame(height: 24)
+
+            Button {
+                model.step()
+            } label: {
+                Label("Step", systemImage: "forward.frame.fill")
+            }
+            .keyboardShortcut("n", modifiers: [.command])
+            .accessibilityLabel("Advance one tick")
+            .accessibilityHint("Runs one full tactical simulation tick.")
+
+            Button {
+                model.runOpponentAI()
+            } label: {
+                Label("Opponent Tick", systemImage: "cpu")
+            }
+            .disabled(model.playableSide == nil)
+            .keyboardShortcut("t", modifiers: [.command])
+            .accessibilityLabel("Run opponent tick")
+            .accessibilityHint("Runs one opponent AI tick for the non-command side.")
+
+            Button {
+                model.runOpponentAI(steps: 10)
+            } label: {
+                Label("Opponent x10", systemImage: "forward.end.fill")
+            }
+            .disabled(model.playableSide == nil)
+            .keyboardShortcut("t", modifiers: [.command, .shift])
+            .accessibilityLabel("Run ten opponent ticks")
+            .accessibilityHint("Runs ten opponent AI ticks for faster playtesting.")
+
+            Button {
+                saveSnapshot()
+            } label: {
+                Label("Snapshot", systemImage: "camera")
+            }
+            .keyboardShortcut("p", modifiers: [.command])
+            .accessibilityLabel("Save snapshot")
+            .accessibilityHint("Writes a local tactical map PNG snapshot.")
+
+            Button {
+                model.resetPlayableBattle()
+            } label: {
+                Label("Reset", systemImage: "arrow.counterclockwise")
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .accessibilityLabel("Reset battle")
+            .accessibilityHint("Restarts the playable scenario.")
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var commandStatusRow: some View {
@@ -185,6 +283,9 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Command status")
+        .accessibilityValue(model.commandHint)
     }
 
     private var sideSelectionOverlay: some View {
@@ -235,6 +336,9 @@ struct ContentView: View {
                 .stroke(Color.primary.opacity(0.16), lineWidth: 1)
         }
         .frame(maxWidth: 720)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Side selection")
+        .accessibilityHint("Choose which side to command before play begins.")
     }
 
     private func sideSelectionButton(_ side: MosulPlayableSide) -> some View {
@@ -259,6 +363,9 @@ struct ContentView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(side == .usPatrol ? Color.blue : Color.red)
+        .keyboardShortcut(side == .usPatrol ? "1" : "2", modifiers: [.command])
+        .accessibilityLabel("Start \(side.title)")
+        .accessibilityHint(side.subtitle)
     }
 
     private var inspector: some View {
@@ -294,6 +401,8 @@ struct ContentView: View {
             }
             .padding(14)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Inspector")
     }
 
     private var commandPanel: some View {
@@ -312,9 +421,12 @@ struct ContentView: View {
                         Button(side.title) {
                             model.startPlayableBattle(as: side)
                         }
+                        .accessibilityHint("Switch command side to \(side.title).")
                     }
                 }
                 .font(.caption)
+                .accessibilityLabel("Command side")
+                .accessibilityValue(model.commandSideTitle)
             }
 
             if let playableSide = model.playableSide {
@@ -481,6 +593,9 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, 4)
+                .accessibilityLabel(model.playerFacingUnitName(unit))
+                .accessibilityValue(model.playerFacingUnitSummary(unit))
+                .accessibilityHint(model.canIssueOrders(to: unit) ? "Select this command unit." : "Inspect this reported contact.")
             }
 
             if model.hiddenEnemyUnitCount > 0 {
@@ -533,6 +648,8 @@ struct ContentView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 
     private func metricRow(_ label: String, _ value: String) -> some View {
@@ -575,6 +692,8 @@ struct ContentView: View {
                         }
                         .disabled(!model.selectedUnitCanReceiveOrders)
                         .help("Route the selected command unit to this task.")
+                        .accessibilityLabel("Route to \(interaction.label)")
+                        .accessibilityHint("Moves the selected command unit toward this map task.")
                     }
 
                     Button {
@@ -584,6 +703,8 @@ struct ContentView: View {
                     }
                     .disabled(!primaryInteractionEnabled(interaction))
                     .help(primaryInteractionTitle(interaction))
+                    .accessibilityLabel("\(primaryInteractionTitle(interaction)) \(interaction.label)")
+                    .accessibilityHint("\(interactionKindName(interaction.kind)) task on \(model.levelRelationDescription(for: interaction)).")
                 }
                 .font(.caption2)
             }

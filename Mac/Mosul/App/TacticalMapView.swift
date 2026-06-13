@@ -21,6 +21,7 @@ struct TacticalMapView: View {
                         .interpolation(.high)
                         .frame(width: layout.size.width, height: layout.size.height)
                         .position(x: layout.rect.midX, y: layout.rect.midY)
+                        .accessibilityHidden(true)
 
                     ForEach(model.visibleMapLevels.filter { !$0.isBase }) { level in
                         mapLevelImage(level, layout: layout)
@@ -33,6 +34,8 @@ struct TacticalMapView: View {
                         .font(.headline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityLabel("Map PNG not found")
+                        .accessibilityHint("The bundled tactical map image could not be loaded.")
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -48,6 +51,10 @@ struct TacticalMapView: View {
                         model.handleMapTap(x: map.x, y: map.y)
                     }
             )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Tactical map")
+            .accessibilityValue("Tick \(model.tick), \(model.playerVisibleUnits.count) visible units, \(model.playerVisibleContacts.count) contact reports")
+            .accessibilityHint("Select units or issue the active map order by clicking the map.")
         }
     }
 
@@ -116,6 +123,8 @@ struct TacticalMapView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(active ? "Hide" : "Show") \(level.displayName)")
+                    .accessibilityValue(active ? "Visible" : "Hidden")
+                    .accessibilityHint(tactical ? "This level has current tactical activity." : "Toggles this building level overlay.")
                 }
             }
             .padding(.horizontal, 7)
@@ -339,6 +348,10 @@ struct TacticalMapView: View {
         }
         .opacity(contact.resolved ? 0.72 : 1.0)
         .position(point)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(contactName(contact.kind)) contact")
+        .accessibilityValue("\(model.levelLabel(for: contact.levelID)), confidence \(contact.confidence)")
+        .accessibilityHint(contact.resolved ? "Resolved contact report." : "Unresolved contact report.")
     }
 
     private func contactMarkerPoint(
@@ -539,6 +552,10 @@ struct TacticalMapView: View {
             }
         }
         .frame(width: layout.size.width, height: layout.size.height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(model.playerFacingUnitName(unit))
+        .accessibilityValue("\(model.playerFacingUnitSideName(unit)), \(model.levelLabel(for: unit.levelID)), \(model.playerFacingUnitSummary(unit))")
+        .accessibilityHint(model.canIssueOrders(to: unit) ? "Selectable command unit." : "Visible intelligence contact.")
     }
 
     private func unitLabel(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {

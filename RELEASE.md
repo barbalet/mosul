@@ -32,6 +32,14 @@ and executable named `MosulGame`. Public-facing copy and DMG volume names use
   source checkout for development.
 - App-bundle runtime check:
   `open -W -n <path-to-MosulGame.app> --args --check-runtime-resources --require-bundled-runtime --runtime-check-output <path-to-runtime-check.txt>`
+- Accessibility/minimum-window evidence:
+  `scripts/check_mosulgame_accessibility_ui.sh` captures the playable shell at
+  `980x680` and verifies keyboard/VoiceOver guardrails.
+- Local release-candidate app bundles:
+  `scripts/build_mosulgame_release_candidate.sh` builds ad-hoc signed
+  `arm64` and `x86_64` candidates under
+  `dist/release-candidate/<arch>/MosulGame.app` and verifies each executable
+  with `lipo`.
 
 ## 1. Prepare the Version
 
@@ -87,6 +95,26 @@ git push origin "v${VERSION}"
 ```
 
 If the release version changes, update `VERSION` and recreate the tag before publishing it.
+
+## Release Candidate Shortcut
+
+Before manual DMG packaging, run the local release-candidate gates:
+
+```bash
+scripts/check_mosulgame_accessibility_ui.sh
+scripts/build_mosulgame_release_candidate.sh
+```
+
+The accessibility check writes ignored evidence to
+`snapshots/evidence/mosul-accessibility-ui.*`. The release-candidate builder
+keeps the app bundle named `MosulGame.app`, writes architecture-specific
+folders under `dist/release-candidate/`, validates bundled runtime resources,
+ad-hoc signs by default, and records `lipo` results in
+`snapshots/evidence/mosul-release-candidate.txt`.
+
+The manual Apple Silicon and Intel sections below remain the underlying build,
+signing, and DMG packaging flow. Later release automation should package the
+candidate app folders into DMGs without changing the app bundle name.
 
 ## 4. Build Apple Silicon
 
