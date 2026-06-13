@@ -106,6 +106,8 @@ struct MosulTrafficVehicle: Identifiable {
 struct MosulContact: Identifiable {
     let id: UInt32
     let tick: UInt32
+    let attackerUnitID: UInt32
+    let targetUnitID: UInt32
     let markerID: String
     let levelID: String
     let kind: Int32
@@ -898,6 +900,56 @@ final class MosulGameModel: ObservableObject {
         playerNotice = "Route set to \(interaction.label)."
     }
 
+    func canFire(at contact: MosulContact) -> Bool {
+        guard selectedUnitCanReceiveOrders,
+              let selectedUnit,
+              let target = units.first(where: { $0.id == contact.targetUnitID }) else {
+            return false
+        }
+
+        return target.side != selectedUnit.side && target.side != 3
+    }
+
+    func fireAtContact(_ contact: MosulContact) {
+        guard let engine else { return }
+        guard let selectedUnit else {
+            playerNotice = "Select a \(commandSideTitle) unit before firing."
+            return
+        }
+        guard let target = units.first(where: { $0.id == contact.targetUnitID }) else {
+            playerNotice = "This contact is not tied to a target unit."
+            return
+        }
+        guard canIssueOrders(to: selectedUnit) else {
+            playerNotice = "Select a \(commandSideTitle) unit before firing."
+            return
+        }
+        guard target.side != selectedUnit.side && target.side != 3 else {
+            playerNotice = "Fire is only available against opposing unit contacts."
+            return
+        }
+
+        let attackerName = playerFacingUnitName(selectedUnit)
+        let targetName = playerFacingUnitName(target)
+        var fireResult = MosulFireResultSummary()
+        let ok = MosulEngineSelectedUnitFire(engine, contact.targetUnitID, &fireResult)
+        refresh()
+
+        guard ok else {
+            playerNotice = "Fire failed: no valid selected unit or target."
+            return
+        }
+
+        if !fireResult.visible {
+            playerNotice = "\(attackerName) has no line of sight to \(targetName)."
+        } else if fireResult.shots_fired <= 0 {
+            playerNotice = "\(attackerName) cannot fire on \(targetName): out of range, out of ammo, or no eligible shooters."
+        } else {
+            let riskText = fireResult.civilian_risk_added > 0 ? ", +\(fireResult.civilian_risk_added) civilian risk" : ""
+            playerNotice = "\(attackerName) fired on \(targetName): \(fireResult.shots_fired) shots, \(fireResult.hits) hits, \(fireResult.casualties) casualties, +\(fireResult.suppression_added) suppression\(riskText)."
+        }
+    }
+
     func handleMapTap(x: CGFloat, y: CGFloat) {
         guard let engine else { return }
 
@@ -1183,6 +1235,8 @@ final class MosulGameModel: ObservableObject {
             MosulContact(
                 id: item.id,
                 tick: item.tick,
+                attackerUnitID: item.attacker_unit_id,
+                targetUnitID: item.target_unit_id,
                 markerID: bridgeString(item.marker_id),
                 levelID: bridgeString(item.level_id),
                 kind: item.kind,

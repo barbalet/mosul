@@ -120,6 +120,8 @@ typedef struct {
 typedef struct {
     uint32_t id;
     uint32_t tick;
+    uint32_t attacker_unit_id;
+    uint32_t target_unit_id;
     char marker_id[MOSUL_BRIDGE_NAME_CAPACITY];
     char level_id[MOSUL_BRIDGE_NAME_CAPACITY];
     int kind;
@@ -133,6 +135,19 @@ typedef struct {
     bool visible;
     bool resolved;
 } MosulContactSummary;
+
+typedef struct {
+    bool resolved;
+    bool visible;
+    float distance_m;
+    int cover;
+    int eligible_shooters;
+    int shots_fired;
+    int hits;
+    int suppression_added;
+    int casualties;
+    int civilian_risk_added;
+} MosulFireResultSummary;
 
 typedef struct {
     uint32_t numeric_id;
@@ -210,6 +225,7 @@ bool MosulEngineIssueSelectedInvestigate(MosulEngine *engine, float x_m, float y
 bool MosulEngineIssueSelectedSearch(MosulEngine *engine, const char *interaction_id);
 bool MosulEngineIssueSelectedBreach(MosulEngine *engine, const char *interaction_id);
 bool MosulEngineIssueSelectedRouteToInteraction(MosulEngine *engine, const char *interaction_id);
+bool MosulEngineSelectedUnitFire(MosulEngine *engine, uint32_t target_unit_id, MosulFireResultSummary *out_result);
 
 size_t MosulEngineCopyMapLevels(const MosulEngine *engine, MosulMapLevelSummary *out_levels, size_t capacity);
 size_t MosulEngineCopyUnits(const MosulEngine *engine, MosulUnitSummary *out_units, size_t capacity);

@@ -521,6 +521,34 @@ bool MosulEngineIssueSelectedRouteToInteraction(MosulEngine *engine, const char 
     ) == MK_OK;
 }
 
+bool MosulEngineSelectedUnitFire(MosulEngine *engine, uint32_t target_unit_id, MosulFireResultSummary *out_result) {
+    mk_fire_result_t fire_result;
+    mk_result_t result;
+
+    memset(&fire_result, 0, sizeof(fire_result));
+    if (out_result != NULL) {
+        memset(out_result, 0, sizeof(*out_result));
+    }
+
+    if (engine == NULL || engine->game.selected_unit_id == 0U || target_unit_id == 0U || out_result == NULL) {
+        return false;
+    }
+
+    result = mk_game_selected_unit_fire(&engine->game, target_unit_id, &fire_result);
+    out_result->resolved = fire_result.resolved;
+    out_result->visible = fire_result.line_of_sight.visible;
+    out_result->distance_m = fire_result.line_of_sight.distance_m;
+    out_result->cover = fire_result.line_of_sight.cover;
+    out_result->eligible_shooters = fire_result.eligible_shooters;
+    out_result->shots_fired = fire_result.shots_fired;
+    out_result->hits = fire_result.hits;
+    out_result->suppression_added = fire_result.suppression_added;
+    out_result->casualties = fire_result.casualties;
+    out_result->civilian_risk_added = fire_result.civilian_risk_added;
+
+    return result == MK_OK;
+}
+
 static size_t mosul_bridge_unit_casualties(const mk_unit_t *unit) {
     size_t index;
     size_t count = 0;
@@ -1169,6 +1197,8 @@ size_t MosulEngineCopyContacts(const MosulEngine *engine, MosulContactSummary *o
         memset(summary, 0, sizeof(*summary));
         summary->id = contact->id;
         summary->tick = contact->tick;
+        summary->attacker_unit_id = contact->attacker_unit_id;
+        summary->target_unit_id = contact->target_unit_id;
         mosul_bridge_copy_marker_id(
             engine,
             summary->marker_id,

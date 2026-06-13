@@ -367,14 +367,29 @@ struct ContentView: View {
                     symbol: "map.fill"
                 )
                 howToPlayRow(
-                    "Select, then choose a mode",
-                    "Use Select to inspect units or contacts. Use Move or Investigate, then click the map to place the order for the selected command unit.",
-                    symbol: "cursorarrow.click.2"
+                    "Movement",
+                    "Select one of your command units, choose Move, then click a destination on the map. A route or destination line appears, and the unit moves when you press Step.",
+                    symbol: "arrow.up.right"
                 )
                 howToPlayRow(
-                    "Use the top controls",
-                    "Hold keeps a unit in place, Overwatch watches for threats, Rally reduces suppression, and Step advances the simulation one tick.",
-                    symbol: "rectangle.topthird.inset.filled"
+                    "Investigating",
+                    "Choose Investigate, then click a suspicious contact, danger area, or building task. The selected unit moves more cautiously and can resolve map tasks when it reaches them.",
+                    symbol: "magnifyingglass"
+                )
+                howToPlayRow(
+                    "Overwatch",
+                    "Select a command unit and press Overwatch to stop it and put it into a watch posture. Use this before stepping time near unresolved contacts or exposed streets.",
+                    symbol: "eye.fill"
+                )
+                howToPlayRow(
+                    "Firing",
+                    "Select a command unit, then use Fire in Contact Reports on an opposing unit contact. Fire checks line of sight, range, ammunition, cover, suppression, casualties, and civilian risk.",
+                    symbol: "scope"
+                )
+                howToPlayRow(
+                    "Time",
+                    "After giving orders, press Step to run one tactical tick. Movement, investigations, suppression recovery, reports, objectives, and civilian risk update during ticks.",
+                    symbol: "forward.frame.fill"
                 )
                 howToPlayRow(
                     "Resolve tasks before racing time",
@@ -405,7 +420,7 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.primary.opacity(0.16), lineWidth: 1)
         }
-        .frame(maxWidth: 760)
+        .frame(maxWidth: 840)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("How to play")
         .accessibilityHint("Explains the basic play loop before side selection.")
@@ -513,6 +528,7 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 commandPanel
+                rulesPanel
                 scorePanel
                 afterActionPanel
                 selectedPanel
@@ -581,6 +597,26 @@ struct ContentView: View {
 
             metricRow("Mode", model.mode.rawValue)
             metricRow("Command State", model.selectedUnitCanReceiveOrders ? "Ready" : "Select command unit")
+        }
+    }
+
+    private var rulesPanel: some View {
+        panel("How Orders Work") {
+            orderRuleRow(
+                "Movement",
+                "Select your unit, choose Move, click the map, then press Step. The unit follows the route over later ticks; traffic, buildings, and upper-level routes can slow or block it.",
+                symbol: "arrow.up.right"
+            )
+            orderRuleRow(
+                "Overwatch",
+                "Select your unit and press Overwatch. It cancels movement and keeps the unit watching from its current position; it is a posture, not a map-target click.",
+                symbol: "eye.fill"
+            )
+            orderRuleRow(
+                "Fire",
+                "Select your unit, then press Fire on an opposing Contact Report. The shot only resolves if the selected unit has line of sight, range, ammunition, and an eligible shooter.",
+                symbol: "scope"
+            )
         }
     }
 
@@ -757,13 +793,35 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
+                Text("To fire, select one of your command units, then use Fire on an opposing unit contact. The selected unit must have line of sight, range, ammunition, and an eligible shooter.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 ForEach(contacts.prefix(8)) { contact in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(contactName(contact.kind)) at \(model.playerFacingPosition(x: contact.x, y: contact.y))")
-                            .font(.caption.weight(.semibold))
-                        Text("Tick \(contact.tick) | \(model.levelLabel(for: contact.levelID)) | \(model.playerFacingContactSideName(contact)) | confidence \(contact.confidence)")
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(contactName(contact.kind)) at \(model.playerFacingPosition(x: contact.x, y: contact.y))")
+                                .font(.caption.weight(.semibold))
+                            Text("Tick \(contact.tick) | \(model.levelLabel(for: contact.levelID)) | \(model.playerFacingContactSideName(contact)) | confidence \(contact.confidence)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if contact.targetUnitID != 0 {
+                            Button {
+                                model.fireAtContact(contact)
+                            } label: {
+                                Label("Fire", systemImage: "scope")
+                            }
+                            .disabled(!model.canFire(at: contact))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .help("Fire the selected command unit at this contact.")
+                            .accessibilityLabel("Fire at \(contactName(contact.kind)) contact")
+                            .accessibilityHint("Uses the selected command unit to resolve line of sight, range, ammunition, cover, suppression, casualties, and civilian risk.")
+                        }
                     }
                     .padding(.vertical, 3)
                 }
@@ -791,6 +849,24 @@ struct ContentView: View {
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
+    }
+
+    private func orderRuleRow(_ title: String, _ message: String, symbol: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func metricRow(_ label: String, _ value: String) -> some View {
@@ -1073,15 +1149,15 @@ private enum CommandControlTip: String, Hashable, Identifiable {
     var message: String {
         switch self {
         case .mapMode:
-            return "Select inspects the map. Move lets you click a destination. Investigate lets the selected command unit resolve suspicious contacts or terrain cues."
+            return "Select inspects the map. Move lets you click a destination for the selected command unit. Investigate lets that unit move cautiously toward suspicious contacts or terrain cues."
         case .hold:
             return "Orders the selected command unit to stay in place. Use it when the unit should secure ground instead of drifting toward another task."
         case .overwatch:
-            return "Orders the selected command unit to watch for threats. It is useful before advancing into unresolved contacts or danger areas."
+            return "Orders the selected command unit to stop moving and watch from its current position. Use Contact Reports to Fire at a specific opposing unit contact."
         case .rally:
             return "Attempts to reduce suppression on the selected command unit so it can keep acting effectively."
         case .step:
-            return "Advances the whole tactical simulation by one tick. Use it after issuing orders to see what changes."
+            return "Advances the whole tactical simulation by one tick. Movement, investigations, reports, objectives, suppression, and civilian risk update after you step."
         case .opponentTick:
             return "Runs one AI tick for the non-command side. It helps test enemy movement without repeatedly stepping everything by hand."
         case .opponentTen:
