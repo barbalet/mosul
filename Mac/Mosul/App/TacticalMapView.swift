@@ -320,7 +320,7 @@ struct TacticalMapView: View {
                     path.move(to: markerPoint)
                     path.addLine(to: destination)
                 }
-                .stroke(trafficVehicleColor(vehicle).opacity(0.62), style: StrokeStyle(lineWidth: 1.8, dash: [5, 5]))
+                .stroke(trafficVehicleColor(vehicle).opacity(0.96), style: StrokeStyle(lineWidth: 3.0, dash: [6, 4]))
                 trafficVehicleDestinationMarker(vehicle, at: destination)
             }
 
@@ -364,7 +364,7 @@ struct TacticalMapView: View {
                         path.move(to: markerPoint)
                         path.addLine(to: target)
                     }
-                    .stroke(markerColor(unit.routeMarkerID, fallback: sideColor(unit.side)).opacity(0.78), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .stroke(markerColor(unit.routeMarkerID, fallback: sideColor(unit.side)).opacity(0.98), style: StrokeStyle(lineWidth: 3.2, dash: [7, 4]))
                     routeDestinationMarker(unit, at: target)
                 }
 
@@ -381,18 +381,22 @@ struct TacticalMapView: View {
     }
 
     private func objectiveMarker(_ objective: MosulObjective, at point: CGPoint, layout: MapLayout) -> some View {
-        let diameter = max(22, objective.radius * 2 * layout.scale)
+        let diameter = max(32, objective.radius * 2 * layout.scale)
         let color = sideColor(objective.controllingSide)
         let ringColor = markerColor(objective.markerID, fallback: color)
 
         return ZStack {
             Circle()
-                .fill(color.opacity(0.08))
+                .fill(color.opacity(0.24))
                 .frame(width: diameter, height: diameter)
             Circle()
-                .stroke(ringColor, style: StrokeStyle(lineWidth: 2.5, dash: objective.controllingSide == 0 ? [5, 4] : []))
+                .stroke(Color.white.opacity(0.90), lineWidth: 6)
+                .frame(width: diameter, height: diameter)
+            Circle()
+                .stroke(ringColor, style: StrokeStyle(lineWidth: 3.8, dash: objective.controllingSide == 0 ? [7, 4] : []))
                 .frame(width: diameter, height: diameter)
         }
+        .shadow(color: ringColor.opacity(0.70), radius: 2.5, x: 0, y: 0)
         .position(point)
     }
 
@@ -400,7 +404,7 @@ struct TacticalMapView: View {
         let label = objective.label.isEmpty ? objective.name : objective.label
         let diameter = max(22, objective.radius * 2 * layout.scale)
         let color = sideColor(objective.controllingSide)
-        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 112), height: 18)
+        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 124), height: 20)
         let labelPoint = clampedLabelPoint(
             near: point,
             offset: CGSize(width: 0, height: -(diameter * 0.5 + 14)),
@@ -410,15 +414,19 @@ struct TacticalMapView: View {
 
         return HStack(spacing: 3) {
             Image(systemName: "flag.fill")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
             Text(label)
-                .font(.system(size: 8, weight: .semibold))
+                .font(.system(size: 9, weight: .bold))
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
-        .foregroundStyle(color)
+        .foregroundStyle(Color.white)
         .frame(width: labelSize.width, height: labelSize.height)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+        .background(color.opacity(0.95), in: RoundedRectangle(cornerRadius: 3))
+        .overlay {
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(Color.white.opacity(0.88), lineWidth: 0.8)
+        }
         .position(labelPoint)
     }
 
@@ -429,12 +437,13 @@ struct TacticalMapView: View {
 
         return ZStack {
             Circle()
-                .fill(color.opacity(dead ? 0.65 : 0.9))
-                .frame(width: dead || wounded ? 10 : 8, height: dead || wounded ? 10 : 8)
-                .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1))
+                .fill(color.opacity(dead ? 0.82 : 1.0))
+                .frame(width: dead || wounded ? 15 : 12, height: dead || wounded ? 15 : 12)
+                .overlay(Circle().stroke(Color.white.opacity(0.86), lineWidth: 1.4))
+                .shadow(color: color.opacity(0.74), radius: 2, x: 0, y: 0)
             if wounded || dead {
                 Text(dead ? "X" : "+")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white)
             }
         }
@@ -445,33 +454,41 @@ struct TacticalMapView: View {
         let risk = max(0, Int(civilian.risk))
         let clampedRisk = min(risk, 8)
         let color = markerColor("civilian_risk", fallback: Color.orange)
-        let diameter = CGFloat(26 + clampedRisk * 6)
+        let diameter = CGFloat(34 + clampedRisk * 8)
         let highRisk = risk >= 4
 
         return ZStack {
             Circle()
-                .fill(color.opacity(highRisk ? 0.16 : 0.08))
+                .fill(color.opacity(highRisk ? 0.32 : 0.22))
+                .frame(width: diameter, height: diameter)
+            Circle()
+                .stroke(Color.white.opacity(0.82), lineWidth: highRisk ? 5.5 : 4.0)
                 .frame(width: diameter, height: diameter)
             Circle()
                 .stroke(
-                    color.opacity(highRisk ? 0.96 : 0.72),
-                    style: StrokeStyle(lineWidth: highRisk ? 2.4 : 1.8, dash: highRisk ? [] : [5, 4])
+                    color.opacity(highRisk ? 1.0 : 0.92),
+                    style: StrokeStyle(lineWidth: highRisk ? 3.4 : 2.6, dash: highRisk ? [] : [6, 4])
                 )
                 .frame(width: diameter, height: diameter)
 
             if highRisk {
                 Circle()
-                    .stroke(Color.white.opacity(0.70), lineWidth: 0.8)
-                    .frame(width: diameter + 6, height: diameter + 6)
+                    .stroke(color.opacity(0.90), lineWidth: 1.6)
+                    .frame(width: diameter + 8, height: diameter + 8)
                 Text("R\(risk)")
-                    .font(.system(size: 8, weight: .bold, design: .rounded))
-                    .foregroundStyle(.black.opacity(0.82))
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(color.opacity(0.88), in: RoundedRectangle(cornerRadius: 3))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.black.opacity(0.90))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(color.opacity(0.96), in: RoundedRectangle(cornerRadius: 3))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 3)
+                            .stroke(Color.white.opacity(0.90), lineWidth: 0.8)
+                    }
                     .offset(x: diameter * 0.36, y: -diameter * 0.36)
             }
         }
+        .shadow(color: color.opacity(0.68), radius: 2.4, x: 0, y: 0)
         .allowsHitTesting(false)
         .position(point)
         .accessibilityLabel("Civilian risk \(risk)")
@@ -483,20 +500,25 @@ struct TacticalMapView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: 2)
-                .fill(color.opacity(contact.resolved ? 0.08 : 0.16))
-                .frame(width: 20, height: 20)
+                .fill(color.opacity(contact.resolved ? 0.24 : 0.40))
+                .frame(width: 26, height: 26)
                 .rotationEffect(.degrees(45))
             RoundedRectangle(cornerRadius: 2)
-                .stroke(color.opacity(contact.resolved ? 0.65 : 1.0), style: StrokeStyle(lineWidth: 1.8, dash: contact.visible ? [] : [3, 2]))
-                .frame(width: 20, height: 20)
+                .stroke(Color.white.opacity(0.92), lineWidth: 4.2)
+                .frame(width: 26, height: 26)
+                .rotationEffect(.degrees(45))
+            RoundedRectangle(cornerRadius: 2)
+                .stroke(color.opacity(contact.resolved ? 0.82 : 1.0), style: StrokeStyle(lineWidth: 2.6, dash: contact.visible ? [] : [4, 2]))
+                .frame(width: 26, height: 26)
                 .rotationEffect(.degrees(45))
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 13, weight: .heavy))
                 .foregroundStyle(color)
             levelChip(model.levelLabel(for: contact.levelID), color: color)
-                .offset(x: 13, y: -13)
+                .offset(x: 16, y: -16)
         }
-        .opacity(contact.resolved ? 0.72 : 1.0)
+        .opacity(contact.resolved ? 0.88 : 1.0)
+        .shadow(color: color.opacity(0.74), radius: 2.4, x: 0, y: 0)
         .position(point)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(contactName(contact.kind)) contact")
@@ -511,7 +533,7 @@ struct TacticalMapView: View {
         layout: MapLayout,
         contacts: [MosulContact]
     ) -> CGPoint {
-        let markerSize = CGSize(width: 24, height: 24)
+        let markerSize = CGSize(width: 32, height: 32)
         let clampedBase = clampedMarkerPoint(basePoint, size: markerSize, layout: layout)
         let clusteredContacts = Array(contacts.enumerated()).filter { pair in
             let otherIndex = pair.offset
@@ -559,35 +581,45 @@ struct TacticalMapView: View {
         let color = markerColor(interaction.markerID, fallback: .teal)
         let symbol = markerSymbol(interaction.markerID, fallback: interactionSymbol(interaction))
         let resolved = interaction.searched || interaction.breached || (interaction.kind == 1 && interaction.open)
-        let size = max(18, min(34, interaction.radius * layout.scale * 2.0))
+        let size = max(24, min(44, interaction.radius * layout.scale * 2.15))
 
         return ZStack {
             if interaction.actionable {
                 Circle()
-                    .stroke(color.opacity(0.76), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
-                    .frame(width: size + 14, height: size + 14)
+                    .stroke(Color.white.opacity(0.86), lineWidth: 5)
+                    .frame(width: size + 18, height: size + 18)
+                Circle()
+                    .stroke(color.opacity(0.98), style: StrokeStyle(lineWidth: 3.1, dash: [6, 3]))
+                    .frame(width: size + 18, height: size + 18)
             }
 
             if interaction.markerID == "rooftop_access" {
                 Triangle()
-                    .fill(color.opacity(resolved ? 0.12 : 0.20))
+                    .fill(color.opacity(resolved ? 0.24 : 0.36))
                     .frame(width: size + 2, height: size + 2)
                 Triangle()
-                    .stroke(color.opacity(resolved ? 0.55 : 0.95), lineWidth: 1.8)
+                    .stroke(Color.white.opacity(0.90), lineWidth: 4.4)
+                    .frame(width: size + 2, height: size + 2)
+                Triangle()
+                    .stroke(color.opacity(resolved ? 0.82 : 1.0), lineWidth: 2.6)
                     .frame(width: size + 2, height: size + 2)
             } else {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(color.opacity(resolved ? 0.10 : 0.18))
+                    .fill(color.opacity(resolved ? 0.22 : 0.34))
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(interaction.markerID == "hidden_contact" ? 45 : 0))
                 RoundedRectangle(cornerRadius: 3)
-                    .stroke(color.opacity(resolved ? 0.55 : 0.95), style: StrokeStyle(lineWidth: 1.8, dash: resolved ? [4, 3] : []))
+                    .stroke(Color.white.opacity(0.92), lineWidth: 4.2)
+                    .frame(width: size, height: size)
+                    .rotationEffect(.degrees(interaction.markerID == "hidden_contact" ? 45 : 0))
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(color.opacity(resolved ? 0.82 : 1.0), style: StrokeStyle(lineWidth: 2.6, dash: resolved ? [5, 3] : []))
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(interaction.markerID == "hidden_contact" ? 45 : 0))
             }
 
             Image(systemName: resolved ? "checkmark" : symbol)
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .heavy))
                 .foregroundStyle(color)
 
             if interaction.vertical || interaction.actionable {
@@ -595,7 +627,8 @@ struct TacticalMapView: View {
                     .offset(x: size * 0.50, y: -size * 0.48)
             }
         }
-        .opacity(resolved ? 0.72 : 1.0)
+        .opacity(resolved ? 0.88 : 1.0)
+        .shadow(color: color.opacity(0.74), radius: 2.4, x: 0, y: 0)
         .position(point)
         .accessibilityLabel("\(interaction.label), \(interaction.state)")
     }
@@ -605,15 +638,19 @@ struct TacticalMapView: View {
 
         return ZStack {
             Circle()
-                .fill(color.opacity(0.16))
-                .frame(width: 18, height: 18)
+                .fill(color.opacity(0.34))
+                .frame(width: 26, height: 26)
             Circle()
-                .stroke(color, lineWidth: 1.6)
-                .frame(width: 18, height: 18)
+                .stroke(Color.white.opacity(0.92), lineWidth: 4.2)
+                .frame(width: 26, height: 26)
+            Circle()
+                .stroke(color, lineWidth: 2.6)
+                .frame(width: 26, height: 26)
             Image(systemName: markerSymbol(unit.targetMarkerID, fallback: routeSymbol(unit.order)))
-                .font(.system(size: 8, weight: .bold))
+                .font(.system(size: 11, weight: .heavy))
                 .foregroundStyle(color)
         }
+        .shadow(color: color.opacity(0.70), radius: 2.2, x: 0, y: 0)
         .position(point)
     }
 
@@ -622,17 +659,22 @@ struct TacticalMapView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: 3)
-                .fill(color.opacity(0.12))
-                .frame(width: 18, height: 18)
+                .fill(color.opacity(0.32))
+                .frame(width: 24, height: 24)
                 .rotationEffect(.degrees(45))
             RoundedRectangle(cornerRadius: 3)
-                .stroke(color.opacity(0.88), lineWidth: 1.4)
-                .frame(width: 18, height: 18)
+                .stroke(Color.white.opacity(0.92), lineWidth: 4)
+                .frame(width: 24, height: 24)
+                .rotationEffect(.degrees(45))
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(color.opacity(1.0), lineWidth: 2.4)
+                .frame(width: 24, height: 24)
                 .rotationEffect(.degrees(45))
             Image(systemName: "arrow.forward")
-                .font(.system(size: 8, weight: .bold))
+                .font(.system(size: 11, weight: .heavy))
                 .foregroundStyle(color)
         }
+        .shadow(color: color.opacity(0.70), radius: 2.2, x: 0, y: 0)
         .position(point)
     }
 
@@ -645,15 +687,16 @@ struct TacticalMapView: View {
 
             if vehicle.occupiedSeats > 0 {
                 Text("\(vehicle.occupiedSeats)")
-                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                    .frame(width: 16, height: 16)
-                    .background(badgeColor.opacity(0.96), in: Circle())
+                    .frame(width: 19, height: 19)
+                    .background(badgeColor.opacity(1.0), in: Circle())
                     .overlay {
                         Circle()
-                            .stroke(Color.white.opacity(0.75), lineWidth: 0.8)
+                            .stroke(Color.white.opacity(0.92), lineWidth: 1.2)
                     }
-                    .offset(x: 4, y: -4)
+                    .shadow(color: badgeColor.opacity(0.80), radius: 2, x: 0, y: 0)
+                    .offset(x: 5, y: -5)
             }
         }
         .frame(width: size + 10, height: size + 10)
@@ -663,7 +706,7 @@ struct TacticalMapView: View {
 
     private func trafficVehicleLabel(_ vehicle: MosulTrafficVehicle, at point: CGPoint, layout: MapLayout) -> some View {
         let label = "\(trafficVehicleShortName(vehicle)) \(vehicle.occupiedSeats)/\(vehicle.seatCapacity)"
-        let labelSize = CGSize(width: labelWidth(for: label, minWidth: 48, maxWidth: 96), height: 16)
+        let labelSize = CGSize(width: labelWidth(for: label, minWidth: 56, maxWidth: 108), height: 18)
         let spriteSize = trafficVehicleSpriteSize(vehicle, layout: layout)
         let yOffset = point.y > layout.rect.maxY - 34 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
         let labelPoint = clampedLabelPoint(
@@ -674,17 +717,22 @@ struct TacticalMapView: View {
         )
 
         return Text(label)
-            .font(.system(size: 8, weight: .semibold, design: .rounded))
+            .font(.system(size: 9, weight: .bold, design: .rounded))
             .lineLimit(1)
             .truncationMode(.tail)
+            .foregroundStyle(.white)
             .frame(width: labelSize.width, height: labelSize.height)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .background(trafficVehicleColor(vehicle).opacity(0.94), in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(Color.white.opacity(0.86), lineWidth: 0.7)
+            }
             .position(labelPoint)
     }
 
     private func unitMarker(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
         let count = unitStatusCount(unit)
-        let statusSize = CGSize(width: 24, height: CGFloat(max(count, 1) * 20))
+        let statusSize = CGSize(width: 30, height: CGFloat(max(count, 1) * 24))
         let statusPoint = clampedLabelPoint(
             near: point,
             offset: unitStatusOffset(at: point, layout: layout),
@@ -711,7 +759,7 @@ struct TacticalMapView: View {
     private func unitLabel(_ unit: MosulUnit, at point: CGPoint, layout: MapLayout) -> some View {
         let levelSuffix = unit.selected || unit.routeUsesVerticalTransition ? " \(model.levelLabel(for: unit.levelID))" : ""
         let label = "\(shortName(model.playerFacingUnitName(unit)))\(levelSuffix)"
-        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 110), height: 16)
+        let labelSize = CGSize(width: labelWidth(for: label, maxWidth: 122), height: 18)
         let spriteSize = unitSpriteSize(unit, layout: layout)
         let yOffset = point.y > layout.rect.maxY - 36 ? -(spriteSize * 0.5 + 10) : spriteSize * 0.5 + 10
         let labelPoint = clampedLabelPoint(
@@ -722,11 +770,16 @@ struct TacticalMapView: View {
         )
 
         return Text(label)
-            .font(.system(size: 9, weight: .semibold, design: .rounded))
+            .font(.system(size: 10, weight: .bold, design: .rounded))
             .lineLimit(1)
             .truncationMode(.tail)
+            .foregroundStyle(.white)
             .frame(width: labelSize.width, height: labelSize.height)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .background(sideColor(unit.side).opacity(0.95), in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .stroke(Color.white.opacity(0.88), lineWidth: 0.7)
+            }
             .position(labelPoint)
     }
 
@@ -822,10 +875,14 @@ struct TacticalMapView: View {
         ZStack {
             Circle()
                 .fill(background)
-                .frame(width: 18, height: 18)
-                .shadow(color: .black.opacity(0.18), radius: 1, x: 0, y: 1)
+                .frame(width: 22, height: 22)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.88), lineWidth: 1.1)
+                }
+                .shadow(color: background.opacity(0.78), radius: 2, x: 0, y: 0)
             Image(systemName: symbol)
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 11, weight: .heavy))
                 .foregroundStyle(color)
         }
     }
@@ -836,51 +893,52 @@ struct TacticalMapView: View {
 
         return ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(Color.black.opacity(0.35))
-                .frame(width: 22, height: 5)
+                .fill(Color.black.opacity(0.58))
+                .frame(width: 26, height: 7)
             RoundedRectangle(cornerRadius: 2)
                 .fill(color)
-                .frame(width: 22 * clamped, height: 5)
+                .frame(width: 26 * clamped, height: 7)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 2)
-                .stroke(Color.white.opacity(0.55), lineWidth: 0.5)
+                .stroke(Color.white.opacity(0.86), lineWidth: 0.9)
         }
     }
 
     private func casualtyMarker(_ unit: MosulUnit, markerID: String) -> some View {
         Text("\(unit.casualtyCount)")
-            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .font(.system(size: 10, weight: .bold, design: .rounded))
             .foregroundStyle(.white)
-            .frame(width: 18, height: 18)
+            .frame(width: 22, height: 22)
             .background(markerColor(markerID, fallback: Color.red), in: Circle())
             .overlay {
                 Circle()
-                    .stroke(Color.white.opacity(0.65), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.90), lineWidth: 1.1)
             }
+            .shadow(color: markerColor(markerID, fallback: Color.red).opacity(0.80), radius: 2, x: 0, y: 0)
             .accessibilityLabel("\(unit.casualtyCount) casualties")
     }
 
     private func markerColor(_ markerID: String, fallback: Color) -> Color {
         switch markerID {
         case "move_route", "move_target", "order_hold":
-            return Color(red: 0.75, green: 0.70, blue: 0.38)
+            return Color(red: 1.00, green: 0.84, blue: 0.16)
         case "fire_order", "order_suppress", "casualty":
-            return Color(red: 0.78, green: 0.24, blue: 0.20)
+            return Color(red: 1.00, green: 0.18, blue: 0.12)
         case "overwatch", "order_overwatch":
-            return Color(red: 0.32, green: 0.55, blue: 0.68)
+            return Color(red: 0.08, green: 0.70, blue: 1.00)
         case "suppression", "order_withdraw", "hidden_contact":
-            return Color(red: 0.78, green: 0.48, blue: 0.20)
+            return Color(red: 1.00, green: 0.48, blue: 0.06)
         case "objective":
-            return Color(red: 0.55, green: 0.50, blue: 0.28)
+            return Color(red: 1.00, green: 0.78, blue: 0.10)
         case "breach_search", "order_breach_search":
-            return Color(red: 0.45, green: 0.58, blue: 0.42)
+            return Color(red: 0.25, green: 0.86, blue: 0.34)
         case "rooftop_access":
-            return Color(red: 0.38, green: 0.58, blue: 0.67)
+            return Color(red: 0.18, green: 0.82, blue: 1.00)
         case "civilian_risk":
-            return Color(red: 0.86, green: 0.68, blue: 0.28)
+            return Color(red: 1.00, green: 0.70, blue: 0.04)
         case "order_investigate":
-            return Color(red: 0.30, green: 0.66, blue: 0.70)
+            return Color(red: 0.00, green: 0.88, blue: 0.92)
         default:
             return fallback
         }
@@ -901,12 +959,12 @@ struct TacticalMapView: View {
 
     private func mapLevelControlColor(_ level: MosulMapLevel) -> Color {
         if level.id.contains("roof_access") {
-            return Color(red: 0.34, green: 0.52, blue: 0.46)
+            return Color(red: 0.12, green: 0.78, blue: 0.56)
         }
         if level.index >= 3 {
-            return Color(red: 0.42, green: 0.42, blue: 0.62)
+            return Color(red: 0.48, green: 0.48, blue: 0.96)
         }
-        return Color(red: 0.36, green: 0.50, blue: 0.64)
+        return Color(red: 0.18, green: 0.62, blue: 0.94)
     }
 
     private func markerSymbol(_ markerID: String, fallback: String) -> String {
@@ -946,29 +1004,29 @@ struct TacticalMapView: View {
 
     private func sideColor(_ side: Int32) -> Color {
         switch side {
-        case 1: return Color(red: 0.24, green: 0.48, blue: 0.73)
-        case 2: return Color(red: 0.68, green: 0.22, blue: 0.18)
-        case 3: return Color(red: 0.82, green: 0.67, blue: 0.34)
-        default: return Color.gray
+        case 1: return Color(red: 0.08, green: 0.48, blue: 1.00)
+        case 2: return Color(red: 1.00, green: 0.16, blue: 0.12)
+        case 3: return Color(red: 1.00, green: 0.82, blue: 0.12)
+        default: return Color(red: 0.72, green: 0.76, blue: 0.82)
         }
     }
 
     private func contactColor(_ contact: MosulContact) -> Color {
         switch contact.kind {
         case 0:
-            return .red
+            return Color(red: 1.00, green: 0.14, blue: 0.10)
         case 1:
-            return .orange
+            return Color(red: 1.00, green: 0.52, blue: 0.08)
         case 2:
-            return .yellow
+            return Color(red: 1.00, green: 0.86, blue: 0.10)
         case 3:
-            return .purple
+            return Color(red: 0.74, green: 0.36, blue: 1.00)
         case 4:
-            return .gray
+            return Color(red: 0.74, green: 0.78, blue: 0.84)
         case 5:
-            return .mint
+            return Color(red: 0.08, green: 0.90, blue: 0.70)
         case 6:
-            return .blue
+            return Color(red: 0.10, green: 0.58, blue: 1.00)
         default:
             return sideColor(contact.side)
         }
@@ -1060,29 +1118,37 @@ struct TacticalMapView: View {
            let image = MosulImageCache.shared.image(atPath: sprite.path) {
             ZStack {
                 Circle()
-                    .fill(sideColor(unit.side).opacity(0.16))
-                    .frame(width: size * 0.72, height: size * 0.72)
+                    .fill(sideColor(unit.side).opacity(0.34))
+                    .frame(width: size * 0.86, height: size * 0.86)
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
                     .frame(width: size, height: size)
-                    .opacity(unit.hidden && !unit.revealed ? 0.72 : 1.0)
+                    .opacity(unit.hidden && !unit.revealed ? 0.84 : 1.0)
+                    .shadow(color: Color.black.opacity(0.40), radius: 1.6, x: 0, y: 1)
             }
             .frame(width: size, height: size)
             .overlay {
                 Circle()
-                    .stroke(unit.selected ? Color.white : sideColor(unit.side).opacity(0.55), lineWidth: unit.selected ? 3 : 1)
-                    .frame(width: size * 0.78, height: size * 0.78)
+                    .stroke(Color.white.opacity(unit.selected ? 1.0 : 0.92), lineWidth: unit.selected ? 5.0 : 3.4)
+                    .frame(width: size * 0.86, height: size * 0.86)
             }
+            .overlay {
+                Circle()
+                    .stroke(sideColor(unit.side).opacity(1.0), lineWidth: unit.selected ? 3.0 : 2.2)
+                    .frame(width: size * 0.86, height: size * 0.86)
+            }
+            .shadow(color: sideColor(unit.side).opacity(0.78), radius: 2.6, x: 0, y: 0)
         } else {
             Circle()
                 .fill(sideColor(unit.side))
-                .frame(width: unit.selected ? 20 : 16, height: unit.selected ? 20 : 16)
+                .frame(width: unit.selected ? 26 : 22, height: unit.selected ? 26 : 22)
                 .overlay {
                     Circle()
-                        .stroke(unit.selected ? Color.white : Color.black.opacity(0.35), lineWidth: unit.selected ? 3 : 1)
+                        .stroke(Color.white.opacity(0.92), lineWidth: unit.selected ? 4 : 3)
                 }
+                .shadow(color: sideColor(unit.side).opacity(0.78), radius: 2.4, x: 0, y: 0)
         }
     }
 
@@ -1095,57 +1161,68 @@ struct TacticalMapView: View {
            let image = MosulImageCache.shared.image(atPath: sprite.path) {
             ZStack {
                 Capsule()
-                    .fill(color.opacity(vehicle.isMoving ? 0.18 : 0.10))
-                    .frame(width: size * 0.82, height: size * 0.46)
+                    .fill(color.opacity(vehicle.isMoving ? 0.34 : 0.26))
+                    .frame(width: size * 0.86, height: size * 0.52)
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
                     .frame(width: size, height: size)
-                    .shadow(color: .black.opacity(0.20), radius: 1.5, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.42), radius: 1.7, x: 0, y: 1)
             }
             .frame(width: size, height: size)
             .overlay {
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(color.opacity(vehicle.isMoving ? 0.72 : 0.45), lineWidth: vehicle.isMoving ? 1.4 : 0.9)
-                    .frame(width: size * 0.74, height: size * 0.42)
+                    .stroke(Color.white.opacity(0.88), lineWidth: vehicle.isMoving ? 3.2 : 2.5)
+                    .frame(width: size * 0.78, height: size * 0.48)
             }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(color.opacity(1.0), lineWidth: vehicle.isMoving ? 2.1 : 1.6)
+                    .frame(width: size * 0.78, height: size * 0.48)
+            }
+            .shadow(color: color.opacity(0.70), radius: 2.3, x: 0, y: 0)
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: vehicle.kind == 2 ? 6 : 5)
-                    .fill(color.opacity(0.34))
+                    .fill(color.opacity(0.58))
                     .frame(
                         width: vehicle.kind == 1 ? size * 0.76 : size * 0.62,
                         height: vehicle.kind == 2 ? size * 0.26 : size * 0.36
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: vehicle.kind == 2 ? 6 : 5)
-                            .stroke(color.opacity(0.86), lineWidth: 1.3)
+                            .stroke(Color.white.opacity(0.88), lineWidth: 3.0)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: vehicle.kind == 2 ? 6 : 5)
+                            .stroke(color.opacity(1.0), lineWidth: 1.9)
                     }
                 Image(systemName: trafficVehicleSymbol(vehicle))
-                    .font(.system(size: max(10, size * 0.26), weight: .semibold))
+                    .font(.system(size: max(11, size * 0.28), weight: .bold))
                     .foregroundStyle(color)
             }
             .frame(width: size, height: size)
+            .shadow(color: color.opacity(0.70), radius: 2.3, x: 0, y: 0)
         }
     }
 
     private func unitSpriteSize(_ unit: MosulUnit, layout: MapLayout) -> CGFloat {
         if unit.side == 3 {
-            return max(24, min(46, layout.scale * 12))
+            return max(30, min(52, layout.scale * 14))
         }
 
-        return max(unit.selected ? 34 : 30, min(unit.selected ? 62 : 54, layout.scale * 15))
+        return max(unit.selected ? 42 : 36, min(unit.selected ? 70 : 62, layout.scale * 17))
     }
 
     private func trafficVehicleSpriteSize(_ vehicle: MosulTrafficVehicle, layout: MapLayout) -> CGFloat {
         switch vehicle.kind {
         case 1:
-            return max(52, min(78, layout.scale * 22))
+            return max(58, min(84, layout.scale * 24))
         case 2:
-            return max(28, min(42, layout.scale * 10))
+            return max(34, min(48, layout.scale * 12))
         default:
-            return max(38, min(60, layout.scale * 15))
+            return max(44, min(66, layout.scale * 17))
         }
     }
 
@@ -1179,11 +1256,11 @@ struct TacticalMapView: View {
     private func trafficVehicleColor(_ vehicle: MosulTrafficVehicle) -> Color {
         switch vehicle.kind {
         case 1:
-            return Color(red: 0.43, green: 0.48, blue: 0.52)
+            return Color(red: 0.74, green: 0.78, blue: 0.86)
         case 2:
-            return Color(red: 0.26, green: 0.53, blue: 0.48)
+            return Color(red: 0.10, green: 0.86, blue: 0.72)
         default:
-            return Color(red: 0.38, green: 0.42, blue: 0.49)
+            return Color(red: 0.56, green: 0.66, blue: 0.82)
         }
     }
 

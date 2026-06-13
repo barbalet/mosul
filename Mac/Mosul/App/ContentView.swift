@@ -3,6 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var model = MosulGameModel()
     @State private var snapshotStatus = ""
+    @State private var showHowToPlay = true
+    @State private var activeCommandControlTip: CommandControlTip?
+    @State private var seenCommandControlTips: Set<CommandControlTip> = []
 
     private var modeBinding: Binding<MosulMapMode> {
         Binding(
@@ -18,10 +21,13 @@ struct ContentView: View {
             } else {
                 ZStack {
                     gameLayout
-                        .disabled(model.playableSide == nil)
-                        .blur(radius: model.playableSide == nil ? 1.2 : 0)
+                        .disabled(showHowToPlay || model.playableSide == nil)
+                        .blur(radius: showHowToPlay || model.playableSide == nil ? 1.2 : 0)
 
-                    if model.playableSide == nil {
+                    if showHowToPlay {
+                        howToPlayOverlay
+                            .padding(24)
+                    } else if model.playableSide == nil {
                         sideSelectionOverlay
                             .padding(24)
                     }
@@ -180,9 +186,17 @@ struct ContentView: View {
             .accessibilityLabel("Map mode")
             .accessibilityValue(model.mode.rawValue)
             .accessibilityHint(model.mode.prompt)
+            .onChange(of: model.mode) { _, _ in
+                presentCommandControlTipIfNeeded(.mapMode)
+            }
+            .popover(isPresented: commandControlTipBinding(.mapMode), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.mapMode)
+            }
 
             Button {
-                model.issueHold()
+                handleCommandControl(.hold) {
+                    model.issueHold()
+                }
             } label: {
                 Label("Hold", systemImage: "hand.raised.fill")
             }
@@ -191,9 +205,14 @@ struct ContentView: View {
             .help("Hold the selected command unit in place.")
             .accessibilityLabel("Hold selected unit")
             .accessibilityHint("Orders the selected command unit to hold position.")
+            .popover(isPresented: commandControlTipBinding(.hold), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.hold)
+            }
 
             Button {
-                model.issueOverwatch()
+                handleCommandControl(.overwatch) {
+                    model.issueOverwatch()
+                }
             } label: {
                 Label("Overwatch", systemImage: "eye.fill")
             }
@@ -202,9 +221,14 @@ struct ContentView: View {
             .help("Set the selected command unit to overwatch.")
             .accessibilityLabel("Set overwatch")
             .accessibilityHint("Orders the selected command unit to watch for threats.")
+            .popover(isPresented: commandControlTipBinding(.overwatch), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.overwatch)
+            }
 
             Button {
-                model.issueRally()
+                handleCommandControl(.rally) {
+                    model.issueRally()
+                }
             } label: {
                 Label("Rally", systemImage: "cross.case.fill")
             }
@@ -213,21 +237,31 @@ struct ContentView: View {
             .help("Rally the selected command unit.")
             .accessibilityLabel("Rally selected unit")
             .accessibilityHint("Attempts to reduce suppression for the selected command unit.")
+            .popover(isPresented: commandControlTipBinding(.rally), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.rally)
+            }
 
             Divider()
                 .frame(height: 24)
 
             Button {
-                model.step()
+                handleCommandControl(.step) {
+                    model.step()
+                }
             } label: {
                 Label("Step", systemImage: "forward.frame.fill")
             }
             .keyboardShortcut("n", modifiers: [.command])
             .accessibilityLabel("Advance one tick")
             .accessibilityHint("Runs one full tactical simulation tick.")
+            .popover(isPresented: commandControlTipBinding(.step), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.step)
+            }
 
             Button {
-                model.runOpponentAI()
+                handleCommandControl(.opponentTick) {
+                    model.runOpponentAI()
+                }
             } label: {
                 Label("Opponent Tick", systemImage: "cpu")
             }
@@ -235,9 +269,14 @@ struct ContentView: View {
             .keyboardShortcut("t", modifiers: [.command])
             .accessibilityLabel("Run opponent tick")
             .accessibilityHint("Runs one opponent AI tick for the non-command side.")
+            .popover(isPresented: commandControlTipBinding(.opponentTick), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.opponentTick)
+            }
 
             Button {
-                model.runOpponentAI(steps: 10)
+                handleCommandControl(.opponentTen) {
+                    model.runOpponentAI(steps: 10)
+                }
             } label: {
                 Label("Opponent x10", systemImage: "forward.end.fill")
             }
@@ -245,24 +284,37 @@ struct ContentView: View {
             .keyboardShortcut("t", modifiers: [.command, .shift])
             .accessibilityLabel("Run ten opponent ticks")
             .accessibilityHint("Runs ten opponent AI ticks for faster playtesting.")
+            .popover(isPresented: commandControlTipBinding(.opponentTen), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.opponentTen)
+            }
 
             Button {
-                saveSnapshot()
+                handleCommandControl(.snapshot) {
+                    saveSnapshot()
+                }
             } label: {
                 Label("Snapshot", systemImage: "camera")
             }
             .keyboardShortcut("p", modifiers: [.command])
             .accessibilityLabel("Save snapshot")
             .accessibilityHint("Writes a local tactical map PNG snapshot.")
+            .popover(isPresented: commandControlTipBinding(.snapshot), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.snapshot)
+            }
 
             Button {
-                model.resetPlayableBattle()
+                handleCommandControl(.reset) {
+                    model.resetPlayableBattle()
+                }
             } label: {
                 Label("Reset", systemImage: "arrow.counterclockwise")
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .accessibilityLabel("Reset battle")
             .accessibilityHint("Restarts the playable scenario.")
+            .popover(isPresented: commandControlTipBinding(.reset), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                commandControlTipView(.reset)
+            }
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -286,6 +338,95 @@ struct ContentView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Command status")
         .accessibilityValue(model.commandHint)
+    }
+
+    private var howToPlayOverlay: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "scope")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.blue)
+                    .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("How to Play")
+                        .font(.largeTitle.weight(.semibold))
+                    Text("Command a small force through a confused urban fight. Select units, issue simple orders, investigate contacts, and keep civilians from becoming the cost of winning.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                howToPlayRow(
+                    "Read the map",
+                    "Bright blue marks your command units. Red and orange mark danger or hostile reports. Yellow marks civilians, objectives, and civilian risk. Green and teal mark tasks, routes, and upper-level access.",
+                    symbol: "map.fill"
+                )
+                howToPlayRow(
+                    "Select, then choose a mode",
+                    "Use Select to inspect units or contacts. Use Move or Investigate, then click the map to place the order for the selected command unit.",
+                    symbol: "cursorarrow.click.2"
+                )
+                howToPlayRow(
+                    "Use the top controls",
+                    "Hold keeps a unit in place, Overwatch watches for threats, Rally reduces suppression, and Step advances the simulation one tick.",
+                    symbol: "rectangle.topthird.inset.filled"
+                )
+                howToPlayRow(
+                    "Resolve tasks before racing time",
+                    "Use the right-side task list to route, search, breach, and use rooftops. The score rewards objectives and resolved interactions, but punishes casualties and civilian risk.",
+                    symbol: "checklist"
+                )
+            }
+
+            HStack {
+                Label("First time you touch a top control, a short explanation opens below it. Click the same control again to use it.", systemImage: "lightbulb.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 18)
+
+                Button {
+                    showHowToPlay = false
+                } label: {
+                    Label("Continue", systemImage: "arrow.right")
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(22)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+        }
+        .frame(maxWidth: 760)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("How to play")
+        .accessibilityHint("Explains the basic play loop before side selection.")
+    }
+
+    private func howToPlayRow(_ title: String, _ message: String, symbol: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var sideSelectionOverlay: some View {
@@ -782,6 +923,71 @@ struct ContentView: View {
         }
     }
 
+    private func handleCommandControl(_ tip: CommandControlTip, action: () -> Void) {
+        if presentCommandControlTipIfNeeded(tip) {
+            return
+        }
+
+        action()
+    }
+
+    @discardableResult
+    private func presentCommandControlTipIfNeeded(_ tip: CommandControlTip) -> Bool {
+        guard !seenCommandControlTips.contains(tip) else {
+            return false
+        }
+
+        seenCommandControlTips.insert(tip)
+        activeCommandControlTip = tip
+        return true
+    }
+
+    private func commandControlTipBinding(_ tip: CommandControlTip) -> Binding<Bool> {
+        Binding(
+            get: { activeCommandControlTip == tip },
+            set: { isPresented in
+                if !isPresented, activeCommandControlTip == tip {
+                    activeCommandControlTip = nil
+                }
+            }
+        )
+    }
+
+    private func commandControlTipView(_ tip: CommandControlTip) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: tip.symbolName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.blue)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tip.title)
+                        .font(.headline)
+                    Text(tip.message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text("This appears only on first use in this play session. Click the same control again to use it.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Spacer()
+                Button("Got it") {
+                    activeCommandControlTip = nil
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(12)
+        .frame(width: 300, alignment: .leading)
+    }
+
     private func outcomeColor(_ outcome: Int32) -> Color {
         switch outcome {
         case 1:
@@ -801,6 +1007,89 @@ struct ContentView: View {
             snapshotStatus = "\(SnapshotController.codename): \(url.path)"
         } catch {
             snapshotStatus = "\(SnapshotController.codename): \(error.localizedDescription)"
+        }
+    }
+}
+
+private enum CommandControlTip: String, Hashable, Identifiable {
+    case mapMode
+    case hold
+    case overwatch
+    case rally
+    case step
+    case opponentTick
+    case opponentTen
+    case snapshot
+    case reset
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .mapMode:
+            return "Map Mode"
+        case .hold:
+            return "Hold"
+        case .overwatch:
+            return "Overwatch"
+        case .rally:
+            return "Rally"
+        case .step:
+            return "Step"
+        case .opponentTick:
+            return "Opponent Tick"
+        case .opponentTen:
+            return "Opponent x10"
+        case .snapshot:
+            return "Snapshot"
+        case .reset:
+            return "Reset"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .mapMode:
+            return "scope"
+        case .hold:
+            return "hand.raised.fill"
+        case .overwatch:
+            return "eye.fill"
+        case .rally:
+            return "cross.case.fill"
+        case .step:
+            return "forward.frame.fill"
+        case .opponentTick:
+            return "cpu"
+        case .opponentTen:
+            return "forward.end.fill"
+        case .snapshot:
+            return "camera"
+        case .reset:
+            return "arrow.counterclockwise"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .mapMode:
+            return "Select inspects the map. Move lets you click a destination. Investigate lets the selected command unit resolve suspicious contacts or terrain cues."
+        case .hold:
+            return "Orders the selected command unit to stay in place. Use it when the unit should secure ground instead of drifting toward another task."
+        case .overwatch:
+            return "Orders the selected command unit to watch for threats. It is useful before advancing into unresolved contacts or danger areas."
+        case .rally:
+            return "Attempts to reduce suppression on the selected command unit so it can keep acting effectively."
+        case .step:
+            return "Advances the whole tactical simulation by one tick. Use it after issuing orders to see what changes."
+        case .opponentTick:
+            return "Runs one AI tick for the non-command side. It helps test enemy movement without repeatedly stepping everything by hand."
+        case .opponentTen:
+            return "Runs ten opponent AI ticks in a row for faster playtesting. Use it when you want the opposition to progress quickly."
+        case .snapshot:
+            return "Writes a tactical map PNG to disk so you can inspect or share the current state."
+        case .reset:
+            return "Restarts the playable scenario for the current command side. It clears the current battle state."
         }
     }
 }
