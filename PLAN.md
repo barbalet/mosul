@@ -20,9 +20,11 @@ The project is ready to move from art/import work into playable-demo development
 - Completed: Step 12 - Tune AIBattle pacing and result criteria using the repeatable evidence report.
 - Completed: Step 13 - Expose and render `modernerKrieg` building-level alpha overlays in the shared tactical map.
 - Completed: Step 14 - Add level-aware unit, contact, and interaction context to the Mac UI.
-- Active: Step 15 - Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
-- Active detail: Hide or soften information the selected side should not know, separate commandable units from observed enemy state, and clarify whether the after-action result is being scored from the U.S. stabilization perspective or the chosen side's perspective.
-- Last advanced: 2026-06-12
+- Completed: Step 15 - Add player-facing fog-of-war and side-perspective outcome context to MosulGame.
+- Completed: Step 16 - Add scripted outcome-band and AI balance-sweep evidence for the playable release loop.
+- Active: Step 17 - Establish the standalone performance budget for launch, first render, memory, and map/sprite loading.
+- Active detail: Measure the Release app before adding caches or lazy-loading so cycle 15 work is tied to observed bottlenecks.
+- Last advanced: 2026-06-13
 
 ## Standalone Release Build Plan
 
@@ -37,8 +39,8 @@ A cycle here means one focused implementation-and-verification loop that leaves
 the repository buildable. Some cycles can overlap, but each should land with
 tests, scripts, or release artifacts updated in the same change.
 
-Current standalone release cycle: cycle 13, Scenario completion loop. Completed
-standalone release cycles: cycles 1-12 on 2026-06-12.
+Current standalone release cycle: cycle 15, Performance budget. Completed
+standalone release cycles: cycles 1-14 on 2026-06-13.
 
 ### Standalone Release Definition
 
@@ -80,9 +82,9 @@ The standalone build is done when:
 | 10 | completed 2026-06-12 | Player onboarding | Replace developer-first launch state with a compact first-run flow: scenario title, side choice, objective summary, and clear start controls. | The first-run overlay now presents `MOSUL`, the scenario name, location/year, objective counts, scenario objectives, U.S. scoring context, and clear icon-backed `Start U.S. Patrol` / `Start Opposing Cell` controls. |
 | 11 | completed 2026-06-12 | Command ergonomics | Polish selection, move/investigate mode, disabled command states, interaction buttons, and feedback notices so commands feel intentional and recoverable. | Segmented map-mode changes now route through command validation, icon-backed order/task controls expose disabled states, player notices report select/move/investigate/hold/overwatch/rally/breach/search/reset feedback, and `docs/mosulgame_manual_smoke.md` covers the manual smoke path. |
 | 12 | completed 2026-06-12 | Fog of war and side context | Finish Step 15: hide or soften enemy state based on chosen side and label U.S.-perspective scoring separately from chosen-side command context. | MosulGame now renders player-visible units and contact reports by chosen side, hides unconfirmed opposing units, redacts opposing order/strength/suppression/route details, and labels score/after-action panels as U.S.-perspective context separate from the command side. |
-| 13 | next | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | A manual or scripted playthrough reaches each expected outcome band. |
-| 14 | pending | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | AI/autoplay tests and evidence reports show stable results without stalls or instant trivial outcomes. |
-| 15 | pending | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | Release build stays inside documented launch/memory/render budgets on Apple Silicon and Intel. |
+| 13 | completed 2026-06-13 | Scenario completion loop | Ensure a full manual-vs-AI playthrough can produce win/partial/failure outcomes with understandable after-action narratives. | `scripts/check_mosulgame_outcome_bands.py` builds the headless tools, runs deterministic scripted success/partial/failure playthroughs, verifies after-action narratives and replay end events, and writes `snapshots/evidence/mosul-outcome-bands.txt`. |
+| 14 | completed 2026-06-13 | Balance and pacing pass | Use AIBattle and headless seed sweeps to tune tick pacing, contact pressure, civilian-risk penalties, and partial-result thresholds for a short public demo. | `scripts/check_mosulgame_balance_sweep.py` runs a five-seed public-demo AI sweep, fails on stalls, weak score floor, weak contact/risk pressure, or early trivial settlement, and writes `snapshots/evidence/mosul-balance-sweep.txt`. |
+| 15 | next | Performance budget | Measure app launch time, first map render time, memory footprint, sprite loading, and large PNG behavior. Add lazy loading or image caching only where measurements require it. | Release build stays inside documented launch/memory/render budgets on Apple Silicon and Intel. |
 | 16 | pending | Error handling | Replace source-tree/developer error messages with release-quality missing-resource, unsupported-platform, and scenario-load messages. | A broken bundle fails with actionable user-facing errors and diagnostic logs. |
 | 17 | pending | Accessibility and UI polish | Review labels, contrast, keyboard focus, button naming, scrolling panels, resizable window behavior, and map controls. | The app remains usable at minimum window size and with keyboard/VoiceOver basics. |
 | 18 | pending | Release candidate build script | Add or update a release script that builds Apple Silicon and Intel app bundles from a clean checkout with bundled resources and ad-hoc signing. | A local command produces both unsigned/ad-hoc app bundles and verifies architecture with `lipo`. |
@@ -102,9 +104,9 @@ The standalone build is done when:
 - Snapshot evidence now uses a watchdog, strict bundled-runtime validation,
   player-state evidence rendering, and a report that validates player-facing
   state.
-- The player-facing app now filters hidden opposing units and redacts opposing
-  unit details, but later cycles still need a full playthrough completion pass
-  and broader UI polish.
+- Scripted outcome-band and balance-sweep checks now cover current result
+  narratives and AI pacing pressure; later cycles still need measured
+  performance, release error handling, and broader UI polish.
 - Release packaging currently assumes the submodule source archive is attached,
   but the app bundle itself still needs its own curated runtime payload.
 
@@ -136,6 +138,12 @@ The standalone build is done when:
   unconfirmed opposing units are hidden, visible opposing elements are shown as
   intel contacts, and U.S.-perspective scoring is labeled separately from
   command context.
+- `scripts/check_mosulgame_outcome_bands.py` verifies success, partial, and
+  failure after-action bands with transcript and replay evidence under
+  ignored `snapshots/evidence/` output.
+- `scripts/check_mosulgame_balance_sweep.py` runs the five-seed public-demo AI
+  pacing sweep with stall, score-floor, contact-pressure, risk-pressure, and
+  early-settlement guards.
 - `scripts/capture_snapshot_evidence.sh` builds MosulGame, validates the app bundle payload, runs a deterministic player-path LaunchServices app launch under a timeout watchdog, and writes ignored PNG plus text-report evidence under `snapshots/evidence/`.
 - MosulGame's first-run overlay now frames the Market / Commercial Streets scenario with side choice, objective summary, U.S.-perspective scoring context, and clear start controls before enabling the tactical map.
 - `scripts/capture_aibattle_evidence.sh` builds AIBattle, runs a deterministic evidence-only app launch, and writes ignored pacing/readability evidence plus a tuning report under `snapshots/evidence/`.

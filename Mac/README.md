@@ -56,6 +56,17 @@ snapshot launch with opponent AI ticks, and writes
 covering side selection, selected unit, issued order, upper-floor overlays, and
 after-action text.
 
+The player-facing release loop also has headless scripted checks for
+after-action outcome bands and AI pacing pressure:
+
+```sh
+scripts/check_mosulgame_outcome_bands.py
+scripts/check_mosulgame_balance_sweep.py
+```
+
+See `docs/mosulgame_playthrough_balance.md` for report paths and current
+thresholds.
+
 `AIBattle.xcodeproj` is a standalone Mac autoplay app for AI-vs-AI development. It reuses the Mosul model, tactical map view, C bridge, and `modernerKrieg` core sources, runs both tactical sides through the core AI loop, visualizes the battle, then starts the next seeded battle after a clean result, pressured partial, tick limit, or watchdog stall.
 
 Run repeatable AIBattle pacing/readability evidence from the repository root:

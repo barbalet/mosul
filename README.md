@@ -138,6 +138,15 @@ Write and validate a deterministic replay:
 
 The current headless CTest suite validates the portable core, board-view projection, fixed loop, AI behavior, asset manifests, scenario data, headless runs, replay output, balance checks, and core/frontend boundary.
 
+MosulGame also has release-oriented scripted playthrough and balance checks:
+
+```sh
+scripts/check_mosulgame_outcome_bands.py
+scripts/check_mosulgame_balance_sweep.py
+```
+
+These checks build the `modernerKrieg` headless preset, verify success/partial/failure after-action bands and public-demo AI pacing pressure, then write ignored text evidence under `snapshots/evidence/`. See `docs/mosulgame_playthrough_balance.md` for the current thresholds and report paths.
+
 ## Mac App
 
 The Mac app source is kept in `mosul`, not in `modernerKrieg`:
