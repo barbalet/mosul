@@ -193,7 +193,7 @@ struct MosulApp: App {
         MosulImageCache.shared.reset()
 
         let renderStart = DispatchTime.now().uptimeNanoseconds
-        let content = TacticalMapView(model: model)
+        let content = TacticalMapView(model: model, scrollable: false)
             .frame(width: 1440, height: 900)
         let renderer = ImageRenderer(content: content)
         renderer.proposedSize = ProposedViewSize(width: 1440, height: 900)

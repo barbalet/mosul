@@ -3,59 +3,115 @@ import SwiftUI
 
 struct TacticalMapView: View {
     @ObservedObject var model: MosulGameModel
+    @State private var zoomScale: CGFloat = 1.0
+    @State private var pinchStartZoomScale: CGFloat?
+
+    private let scrollable: Bool
+    private let minimumZoomScale: CGFloat = 1.0
+    private let maximumZoomScale: CGFloat = 3.0
+    private let zoomStep: CGFloat = 0.25
+
     private var spriteManifest: MosulSpriteManifest {
         MosulSpriteManifest.shared(for: model.runtimeResources)
     }
 
+    init(model: MosulGameModel, scrollable: Bool = true) {
+        self.model = model
+        self.scrollable = scrollable
+    }
+
     var body: some View {
         GeometryReader { proxy in
-            let layout = mapLayout(in: proxy.size)
-
             ZStack(alignment: .topLeading) {
-                Rectangle()
-                    .fill(Color(nsColor: .windowBackgroundColor))
+                let contentSize = zoomedContentSize(for: proxy.size)
 
-                if let image = mapBaseImage() {
-                    Image(nsImage: image)
-                        .resizable()
-                        .interpolation(.high)
-                        .frame(width: layout.size.width, height: layout.size.height)
-                        .position(x: layout.rect.midX, y: layout.rect.midY)
-                        .accessibilityHidden(true)
-
-                    ForEach(model.visibleMapLevels.filter { !$0.isBase }) { level in
-                        mapLevelImage(level, layout: layout)
+                Group {
+                    if scrollable {
+                        ScrollView([.horizontal, .vertical]) {
+                            mapCanvas(size: contentSize)
+                                .frame(width: contentSize.width, height: contentSize.height)
+                        }
+                        .scrollIndicators(.visible)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                        }
+                    } else {
+                        mapCanvas(size: contentSize)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                            }
                     }
-
-                    overlayContent(layout: layout, containerSize: proxy.size)
-                    mapLevelControls(layout: layout)
-                } else {
-                    Text("Map PNG not found")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .accessibilityLabel("Map PNG not found")
-                        .accessibilityHint("The bundled tactical map image could not be loaded.")
                 }
+                .simultaneousGesture(
+                    MagnificationGesture()
+                        .onChanged { value in
+                            if pinchStartZoomScale == nil {
+                                pinchStartZoomScale = zoomScale
+                            }
+                            zoomScale = clampedZoomScale((pinchStartZoomScale ?? zoomScale) * value)
+                        }
+                        .onEnded { _ in
+                            pinchStartZoomScale = nil
+                        }
+                )
+
+                mapLevelControls
+                zoomControls
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onEnded { value in
-                        guard layout.rect.contains(value.location) else { return }
-                        let map = mapPoint(for: value.location, layout: layout)
-                        model.handleMapTap(x: map.x, y: map.y)
-                    }
-            )
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Tactical map")
-            .accessibilityValue("Tick \(model.tick), \(model.playerVisibleUnits.count) visible units, \(model.playerVisibleContacts.count) contact reports")
-            .accessibilityHint("Select units or issue the active map order by clicking the map.")
+            .accessibilityValue("Tick \(model.tick), \(model.playerVisibleUnits.count) visible units, \(model.playerVisibleContacts.count) contact reports, \(zoomPercent)% zoom")
+            .accessibilityHint("Select units or issue the active map order by clicking the map. Scroll when zoomed in.")
         }
+    }
+
+    private func mapCanvas(size: CGSize) -> some View {
+        let layout = mapLayout(in: size)
+
+        return ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(Color(nsColor: .windowBackgroundColor))
+                .frame(width: size.width, height: size.height)
+
+            if let image = mapBaseImage() {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: layout.size.width, height: layout.size.height)
+                    .position(x: layout.rect.midX, y: layout.rect.midY)
+                    .accessibilityHidden(true)
+
+                ForEach(model.visibleMapLevels.filter { !$0.isBase }) { level in
+                    mapLevelImage(level, layout: layout)
+                }
+
+                overlayContent(layout: layout, containerSize: size)
+            } else {
+                Text("Map PNG not found")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .frame(width: size.width, height: size.height)
+                    .accessibilityLabel("Map PNG not found")
+                    .accessibilityHint("The bundled tactical map image could not be loaded.")
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .contentShape(Rectangle())
+        .gesture(
+            SpatialTapGesture()
+                .onEnded { value in
+                    guard layout.rect.contains(value.location) else {
+                        return
+                    }
+
+                    let map = mapPoint(for: value.location, layout: layout)
+                    model.handleMapTap(x: map.x, y: map.y)
+                }
+        )
     }
 
     private func mapBaseImage() -> NSImage? {
@@ -81,61 +137,155 @@ struct TacticalMapView: View {
         }
     }
 
-    @ViewBuilder
-    private func mapLevelControls(layout: MapLayout) -> some View {
+    private var mapLevelControls: some View {
         let overlays = model.overlayMapLevels
 
-        if !overlays.isEmpty {
-            HStack(spacing: 5) {
-                Image(systemName: "square.3.layers.3d.top.filled")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 18, height: 20)
+        return Group {
+            if !overlays.isEmpty {
+                HStack(spacing: 5) {
+                    Image(systemName: "square.3.layers.3d.top.filled")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 20)
 
-                ForEach(overlays) { level in
-                    let active = model.visibleMapLevelIDs.contains(level.id)
-                    let tactical = model.tacticalMapLevelIDs.contains(level.id)
+                    ForEach(overlays) { level in
+                        let active = model.visibleMapLevelIDs.contains(level.id)
+                        let tactical = model.tacticalMapLevelIDs.contains(level.id)
 
-                    Button {
-                        model.toggleMapLevelVisibility(level)
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Text(level.shortLabel)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(active ? Color.white : Color.secondary)
-                                .frame(width: 22, height: 20)
-                                .background(
-                                    mapLevelControlColor(level).opacity(active ? 0.90 : 0.10),
-                                    in: RoundedRectangle(cornerRadius: 4)
-                                )
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(mapLevelControlColor(level).opacity(active ? 0.95 : 0.35), lineWidth: 1)
+                        Button {
+                            model.toggleMapLevelVisibility(level)
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Text(level.shortLabel)
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .foregroundStyle(active ? Color.white : Color.secondary)
+                                    .frame(width: 22, height: 20)
+                                    .background(
+                                        mapLevelControlColor(level).opacity(active ? 0.90 : 0.10),
+                                        in: RoundedRectangle(cornerRadius: 4)
+                                    )
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(mapLevelControlColor(level).opacity(active ? 0.95 : 0.35), lineWidth: 1)
+                                    }
+
+                                if tactical {
+                                    Circle()
+                                        .fill(Color.yellow)
+                                        .frame(width: 5, height: 5)
+                                        .offset(x: 2, y: -2)
                                 }
-
-                            if tactical {
-                                Circle()
-                                    .fill(Color.yellow)
-                                    .frame(width: 5, height: 5)
-                                    .offset(x: 2, y: -2)
                             }
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(active ? "Hide" : "Show") \(level.displayName)")
+                        .accessibilityValue(active ? "Visible" : "Hidden")
+                        .accessibilityHint(tactical ? "This level has current tactical activity." : "Toggles this building level overlay.")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(active ? "Hide" : "Show") \(level.displayName)")
-                    .accessibilityValue(active ? "Visible" : "Hidden")
-                    .accessibilityHint(tactical ? "This level has current tactical activity." : "Toggles this building level overlay.")
                 }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Map levels")
             }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 5)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
-            .overlay {
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.primary.opacity(0.14), lineWidth: 1)
-            }
-            .position(x: layout.rect.minX + 70, y: layout.rect.minY + 24)
         }
+    }
+
+    private var zoomControls: some View {
+        HStack(spacing: 6) {
+            Button {
+                adjustZoom(by: -zoomStep)
+            } label: {
+                Image(systemName: "minus.magnifyingglass")
+                    .frame(width: 18, height: 18)
+            }
+            .disabled(zoomScale <= minimumZoomScale + 0.001)
+            .keyboardShortcut("-", modifiers: [.command])
+            .help("Zoom out")
+            .accessibilityLabel("Zoom out")
+            .accessibilityHint("Decreases tactical map zoom.")
+
+            Text("\(zoomPercent)%")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 42)
+                .accessibilityLabel("Map zoom")
+                .accessibilityValue("\(zoomPercent) percent")
+
+            Button {
+                adjustZoom(by: zoomStep)
+            } label: {
+                Image(systemName: "plus.magnifyingglass")
+                    .frame(width: 18, height: 18)
+            }
+            .disabled(zoomScale >= maximumZoomScale - 0.001)
+            .keyboardShortcut("=", modifiers: [.command])
+            .help("Zoom in")
+            .accessibilityLabel("Zoom in")
+            .accessibilityHint("Increases tactical map zoom up to 300 percent.")
+
+            Button {
+                setZoom(minimumZoomScale)
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .frame(width: 18, height: 18)
+            }
+            .disabled(zoomScale <= minimumZoomScale + 0.001)
+            .keyboardShortcut("0", modifiers: [.command])
+            .help("Reset zoom")
+            .accessibilityLabel("Reset zoom")
+            .accessibilityHint("Returns the tactical map to fit-to-window zoom.")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .padding(7)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.primary.opacity(0.14), lineWidth: 1)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Map zoom controls")
+    }
+
+    private var zoomPercent: Int {
+        Int((zoomScale * 100).rounded())
+    }
+
+    private func zoomedContentSize(for viewportSize: CGSize) -> CGSize {
+        let fittedMapSize = mapLayout(in: viewportSize).size
+        let zoomedMapSize = CGSize(
+            width: fittedMapSize.width * zoomScale,
+            height: fittedMapSize.height * zoomScale
+        )
+
+        return CGSize(
+            width: max(1, viewportSize.width, zoomedMapSize.width),
+            height: max(1, viewportSize.height, zoomedMapSize.height)
+        )
+    }
+
+    private func adjustZoom(by delta: CGFloat) {
+        setZoom(zoomScale + delta)
+    }
+
+    private func setZoom(_ scale: CGFloat) {
+        withAnimation(.easeOut(duration: 0.16)) {
+            zoomScale = clampedZoomScale(scale)
+        }
+    }
+
+    private func clampedZoomScale(_ scale: CGFloat) -> CGFloat {
+        min(max(scale, minimumZoomScale), maximumZoomScale)
     }
 
     @ViewBuilder

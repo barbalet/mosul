@@ -67,7 +67,7 @@ enum SnapshotController {
             withIntermediateDirectories: true
         )
 
-        let content = TacticalMapView(model: model)
+        let content = TacticalMapView(model: model, scrollable: false)
             .frame(width: size.width, height: size.height)
 
         let renderer = ImageRenderer(content: content)
@@ -380,7 +380,7 @@ private struct PlayerEvidenceSnapshotView: View {
 
             if compactLayout {
                 VStack(spacing: 0) {
-                    TacticalMapView(model: model)
+                    TacticalMapView(model: model, scrollable: false)
                         .padding(10)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -394,7 +394,7 @@ private struct PlayerEvidenceSnapshotView: View {
                 }
             } else {
                 HStack(spacing: 0) {
-                    TacticalMapView(model: model)
+                    TacticalMapView(model: model, scrollable: false)
                         .padding(14)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
