@@ -171,6 +171,8 @@ struct MosulAudioContext: Equatable {
     var mapZoom: Double
     var visibleContactCount: Int
     var unresolvedCivilianRiskCount: Int
+    var movingVisibleUnitCount: Int
+    var movingTrafficVehicleCount: Int
     var activeTargetingMode: MosulMapMode?
     var tension: Double
 
@@ -181,6 +183,8 @@ struct MosulAudioContext: Equatable {
         mapZoom: 1.0,
         visibleContactCount: 0,
         unresolvedCivilianRiskCount: 0,
+        movingVisibleUnitCount: 0,
+        movingTrafficVehicleCount: 0,
         activeTargetingMode: nil,
         tension: 0
     )
@@ -190,8 +194,11 @@ struct MosulAudioContext: Equatable {
             "tick:\(tick)",
             "side:\(selectedSide?.title ?? "none")",
             "unit:\(selectedUnitID.map(String.init) ?? "none")",
+            "zoom:\(String(format: "%.2f", mapZoom))",
             "contacts:\(visibleContactCount)",
             "civilian_risk:\(unresolvedCivilianRiskCount)",
+            "moving_units:\(movingVisibleUnitCount)",
+            "moving_traffic:\(movingTrafficVehicleCount)",
             "mode:\(activeTargetingMode?.rawValue ?? "none")",
             "tension:\(String(format: "%.2f", tension))"
         ].joined(separator: ",")
@@ -207,6 +214,8 @@ enum MosulAudioEvent: Equatable {
     case contactRevealed(contactID: UInt32)
     case fireResolved(attackerID: UInt32, targetID: UInt32, outcome: MosulFireAudioOutcome)
     case lineOfSightBlocked
+    case invalidCommand(kind: MosulOrderKind)
+    case routeBlocked(reason: String)
     case civilianRiskChanged(level: MosulCivilianRiskAudioLevel)
     case objectiveResolved(id: UInt32)
     case afterAction(outcome: MosulOutcomeBand)
@@ -229,6 +238,10 @@ enum MosulAudioEvent: Equatable {
             return "fire_resolved"
         case .lineOfSightBlocked:
             return "line_of_sight_blocked"
+        case .invalidCommand:
+            return "invalid_command"
+        case .routeBlocked:
+            return "route_blocked"
         case .civilianRiskChanged:
             return "civilian_risk_changed"
         case .objectiveResolved:
@@ -254,6 +267,10 @@ enum MosulAudioEvent: Equatable {
             return "\(attackerID)->\(targetID):\(outcome.rawValue)"
         case .lineOfSightBlocked:
             return "blocked"
+        case .invalidCommand(let kind):
+            return kind.rawValue
+        case .routeBlocked(let reason):
+            return reason.isEmpty ? "blocked" : reason
         case .civilianRiskChanged(let level):
             return level.rawValue
         case .objectiveResolved(let id):
@@ -301,18 +318,35 @@ final class MosulAudioController: ObservableObject {
     @Published private(set) var status: MosulAudioStatus = .unconfigured
     @Published private(set) var context = MosulAudioContext.empty
 
+    private enum CueID {
+        static let orderArm = "ui.order.arm"
+        static let orderConfirm = "ui.order.confirm"
+        static let invalid = "ui.invalid"
+        static let tick = "tactical.tick"
+        static let movement = "tactical.movement"
+        static let contact = "tactical.contact"
+        static let routeBlocked = "tactical.route_blocked"
+        static let fire = "tactical.fire"
+        static let objective = "tactical.objective"
+        static let risk = "tactical.risk"
+    }
+
     private let userDefaults: UserDefaults
     private let engine = AVAudioEngine()
     private let masterMixer = AVAudioMixerNode()
     private var busMixers: [MosulAudioBus: AVAudioMixerNode] = [:]
     private var loopPlayers: [String: AVAudioPlayerNode] = [:]
     private var loopFiles: [String: AVAudioFile] = [:]
+    private var loopAssets: [String: MosulAudioAsset] = [:]
+    private var oneShotPlayers: [String: AVAudioPlayerNode] = [:]
     private var oneShotFiles: [String: AVAudioFile] = [:]
+    private var oneShotAssets: [String: MosulAudioAsset] = [:]
     private var graphConfigured = false
     private var currentRuntimeRoot: URL?
     private var manifestAssetCount = 0
     private var ambienceDucked = false
     private var duckRestoreWorkItem: DispatchWorkItem?
+    private var lastCuePlayback: [String: TimeInterval] = [:]
 
     init(
         userDefaults: UserDefaults = .standard,
@@ -349,6 +383,18 @@ final class MosulAudioController: ObservableObject {
         settings.masterVolume
     }
 
+    var loadedAssetCount: Int {
+        manifestAssetCount
+    }
+
+    var loadedLoopCount: Int {
+        loopPlayers.count
+    }
+
+    var loadedCueCount: Int {
+        oneShotPlayers.count
+    }
+
     var accessibilityValue: String {
         if settings.disabledByLaunchArgument {
             return "Sound disabled for this launch"
@@ -368,12 +414,13 @@ final class MosulAudioController: ObservableObject {
 
         if currentRuntimeRoot == runtimeResources.runtimeAssetRootURL {
             startLoopPlaybackIfNeeded()
+            applyMixerVolumes()
             refreshStatus()
             return
         }
 
         stopAll()
-        detachLoopPlayers()
+        detachPlayers()
         currentRuntimeRoot = runtimeResources.runtimeAssetRootURL
         manifestAssetCount = 0
 
@@ -391,7 +438,6 @@ final class MosulAudioController: ObservableObject {
             try configureGraphIfNeeded()
             try loadAssets(manifest.assets, relativeTo: manifestURL.deletingLastPathComponent())
             applyMixerVolumes()
-            startLoopPlaybackIfNeeded()
             refreshStatus()
         } catch {
             status = .manifestInvalid(error.localizedDescription)
@@ -425,14 +471,88 @@ final class MosulAudioController: ObservableObject {
     func updateContext(_ nextContext: MosulAudioContext) {
         context = nextContext
         setAmbienceDucked(nextContext.tension >= 0.65)
+        applyMixerVolumes()
+        startLoopPlaybackIfNeeded()
+        refreshStatus()
     }
 
     func play(_ event: MosulAudioEvent) {
+        guard !settings.disabledByLaunchArgument else { return }
+
         switch event {
-        case .contactRevealed, .fireResolved, .civilianRiskChanged, .lineOfSightBlocked:
+        case .battleStarted, .unitSelected:
+            playCue(CueID.orderConfirm, cooldown: 0.12)
+        case .orderArmed:
+            playCue(CueID.orderArm, cooldown: 0.08)
+        case .orderPlaced(let kind):
+            playOrderPlacedCue(kind)
+        case .tickResolved:
+            if context.movingVisibleUnitCount > 0 || context.movingTrafficVehicleCount > 0 {
+                playCue(CueID.movement, cooldown: 0.35)
+            } else {
+                playCue(CueID.tick, cooldown: 0.28)
+            }
+        case .contactRevealed:
             duckAmbienceBriefly()
-        default:
-            break
+            playCue(CueID.contact, cooldown: 0.6)
+        case .fireResolved(_, _, let outcome):
+            duckAmbienceBriefly()
+            switch outcome {
+            case .fired:
+                playCue(CueID.fire, cooldown: 0.5)
+            case .blockedLineOfSight:
+                playCue(CueID.routeBlocked, cooldown: 0.35)
+            case .failed, .noShots:
+                playCue(CueID.invalid, cooldown: 0.2)
+            }
+        case .lineOfSightBlocked, .routeBlocked:
+            duckAmbienceBriefly()
+            playCue(CueID.routeBlocked, cooldown: 0.35)
+        case .invalidCommand:
+            playCue(CueID.invalid, cooldown: 0.18)
+        case .civilianRiskChanged:
+            duckAmbienceBriefly()
+            playCue(CueID.risk, cooldown: 0.8)
+        case .objectiveResolved, .afterAction:
+            playCue(CueID.objective, cooldown: 0.8)
+        }
+    }
+
+    private func playOrderPlacedCue(_ kind: MosulOrderKind) {
+        switch kind {
+        case .move, .route, .investigate:
+            playCue(CueID.orderConfirm, cooldown: 0.1)
+            playCue(CueID.movement, cooldown: 0.25)
+        case .fire:
+            playCue(CueID.orderArm, cooldown: 0.1)
+        case .watch, .hold, .rally, .search, .breach, .step, .opponentTick, .reset, .unknown:
+            playCue(CueID.orderConfirm, cooldown: 0.1)
+        }
+    }
+
+    private func playCue(_ assetID: String, cooldown: TimeInterval) {
+        guard !isSilent,
+              let player = oneShotPlayers[assetID],
+              let file = oneShotFiles[assetID] else {
+            return
+        }
+
+        let now = Date.timeIntervalSinceReferenceDate
+        if let previous = lastCuePlayback[assetID], now - previous < cooldown {
+            return
+        }
+        lastCuePlayback[assetID] = now
+
+        do {
+            if !engine.isRunning {
+                try engine.start()
+            }
+            player.stop()
+            player.scheduleFile(file, at: nil)
+            player.play()
+            refreshStatus()
+        } catch {
+            status = .engineFailed(error.localizedDescription)
         }
     }
 
@@ -440,6 +560,9 @@ final class MosulAudioController: ObservableObject {
         duckRestoreWorkItem?.cancel()
         duckRestoreWorkItem = nil
         for player in loopPlayers.values {
+            player.stop()
+        }
+        for player in oneShotPlayers.values {
             player.stop()
         }
         if engine.isRunning {
@@ -476,20 +599,35 @@ final class MosulAudioController: ObservableObject {
                 engine.connect(player, to: mixer(for: asset.bus), format: file.processingFormat)
                 loopPlayers[asset.id] = player
                 loopFiles[asset.id] = file
+                loopAssets[asset.id] = asset
             case .oneShot, .voice:
+                let player = AVAudioPlayerNode()
+                engine.attach(player)
+                engine.connect(player, to: mixer(for: asset.bus), format: file.processingFormat)
+                player.volume = 0.8
+                oneShotPlayers[asset.id] = player
                 oneShotFiles[asset.id] = file
+                oneShotAssets[asset.id] = asset
             }
         }
     }
 
-    private func detachLoopPlayers() {
+    private func detachPlayers() {
         for player in loopPlayers.values {
+            player.stop()
+            engine.detach(player)
+        }
+        for player in oneShotPlayers.values {
             player.stop()
             engine.detach(player)
         }
         loopPlayers.removeAll()
         loopFiles.removeAll()
+        loopAssets.removeAll()
+        oneShotPlayers.removeAll()
         oneShotFiles.removeAll()
+        oneShotAssets.removeAll()
+        lastCuePlayback.removeAll()
     }
 
     private func mixer(for bus: MosulAudioBus) -> AVAudioMixerNode {
@@ -497,7 +635,7 @@ final class MosulAudioController: ObservableObject {
     }
 
     private func startLoopPlaybackIfNeeded() {
-        guard !isSilent, !loopPlayers.isEmpty else {
+        guard shouldRunLoops else {
             return
         }
 
@@ -505,6 +643,7 @@ final class MosulAudioController: ObservableObject {
             if !engine.isRunning {
                 try engine.start()
             }
+            applyLoopVolumes()
             for assetID in loopPlayers.keys.sorted() {
                 startLoop(assetID)
             }
@@ -533,7 +672,7 @@ final class MosulAudioController: ObservableObject {
     }
 
     private func loopDidFinish(_ assetID: String) {
-        guard !isSilent,
+        guard shouldRunLoops,
               engine.isRunning,
               let player = loopPlayers[assetID],
               let file = loopFiles[assetID] else {
@@ -546,12 +685,46 @@ final class MosulAudioController: ObservableObject {
         }
     }
 
+    private var shouldRunLoops: Bool {
+        !isSilent && !loopPlayers.isEmpty && context.selectedSide != nil
+    }
+
     private func applyMixerVolumes() {
         masterMixer.outputVolume = isMuted ? 0 : Float(settings.masterVolume)
-        busMixers[.ambience]?.outputVolume = ambienceDucked ? 0.45 : 1.0
-        busMixers[.tactical]?.outputVolume = 1.0
-        busMixers[.radio]?.outputVolume = 0.88
+        let tension = Float(min(1, max(0, context.tension)))
+        let ambienceDuck: Float = ambienceDucked ? 0.42 : 1.0
+        busMixers[.ambience]?.outputVolume = ambienceDuck * (1.0 - 0.18 * tension)
+        busMixers[.tactical]?.outputVolume = min(1.0, 0.9 + 0.1 * tension)
+        busMixers[.radio]?.outputVolume = 0.82
         busMixers[.ui]?.outputVolume = 0.82
+        applyLoopVolumes()
+    }
+
+    private func applyLoopVolumes() {
+        let tension = min(1, max(0, context.tension))
+        let zoomFocus = min(1, max(0, (context.mapZoom - 1.0) / 2.0))
+        let movement = min(1, Double(context.movingVisibleUnitCount + context.movingTrafficVehicleCount) / 5.0)
+
+        for (assetID, player) in loopPlayers {
+            guard let asset = loopAssets[assetID] else {
+                player.volume = 0.18
+                continue
+            }
+
+            let tags = Set(asset.tags)
+            var volume = 0.16
+            if tags.contains("low_tension") {
+                volume = 0.34 * (1.0 - 0.46 * tension) * (1.0 - 0.18 * zoomFocus)
+            } else if tags.contains("high_tension") {
+                volume = 0.04 + 0.26 * tension
+            } else if tags.contains("generator") {
+                volume = 0.10 + 0.12 * zoomFocus
+            } else if tags.contains("engine") {
+                volume = 0.05 + 0.18 * movement + 0.06 * zoomFocus
+            }
+
+            player.volume = Float(min(0.44, max(0.02, volume)))
+        }
     }
 
     private func setAmbienceDucked(_ ducked: Bool) {

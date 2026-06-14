@@ -211,6 +211,8 @@ struct MosulApp: App {
         defaults.set(MosulAudioSettings.defaultMasterVolume, forKey: MosulAudioSettings.masterVolumeDefaultsKey)
 
         let audio = MosulAudioController(userDefaults: defaults, launchArguments: CommandLine.arguments)
+        model.startPlayableBattle(as: .usPatrol)
+        model.updateTacticalMapZoom(2.25)
         audio.configure(runtimeResources: model.runtimeResources)
         audio.updateContext(model.audioContext)
         let configuredStatus = audio.status.description
@@ -221,7 +223,21 @@ struct MosulApp: App {
 
         audio.setMuted(false)
         audio.setMasterVolume(0.4)
-        audio.play(.battleStarted(side: model.playableSide ?? .usPatrol))
+        let probeEvents: [MosulAudioEvent] = [
+            .battleStarted(side: .usPatrol),
+            .orderArmed(kind: .move),
+            .orderPlaced(kind: .move),
+            .tickResolved(tick: model.tick),
+            .contactRevealed(contactID: 1),
+            .invalidCommand(kind: .fire),
+            .routeBlocked(reason: "blocked"),
+            .fireResolved(attackerID: 1, targetID: 2, outcome: .fired),
+            .civilianRiskChanged(level: .medium),
+            .objectiveResolved(id: 1)
+        ]
+        for event in probeEvents {
+            audio.play(event)
+        }
         let mutedAfterUnmute = audio.isMuted
         let unmutedValue = audio.accessibilityValue
         let finalStatus = audio.status.description
@@ -233,10 +249,14 @@ struct MosulApp: App {
             "runtime_source=\(model.runtimeResources.source.description)",
             "audio_status=\(configuredStatus)",
             "audio_final_status=\(finalStatus)",
+            "audio_asset_count=\(audio.loadedAssetCount)",
+            "audio_loop_count=\(audio.loadedLoopCount)",
+            "audio_cue_count=\(audio.loadedCueCount)",
             "audio_muted_after_toggle=\(mutedAfterToggle)",
             "audio_muted_value=\(mutedValue)",
             "audio_muted_after_unmute=\(mutedAfterUnmute)",
             "audio_unmuted_value=\(unmutedValue)",
+            "audio_probe_events=\(probeEvents.map(\.reportName).joined(separator: ","))",
             "audio_context=\(model.audioContext.reportSummary)"
         ].joined(separator: "\n") + "\n"
     }

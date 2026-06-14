@@ -178,8 +178,14 @@ fi
 
 for expected in \
   '^audio_status=' \
+  '^audio_asset_count=' \
+  '^audio_loop_count=' \
+  '^audio_cue_count=' \
   '^audio_muted_after_toggle=true$' \
   '^audio_muted_after_unmute=false$' \
+  '^audio_probe_events=.*order_placed' \
+  '^audio_probe_events=.*fire_resolved' \
+  '^audio_probe_events=.*civilian_risk_changed' \
   '^audio_context='; do
   if ! grep -q "$expected" "$REPORT_PATH"; then
     echo "error: audio smoke report missing expected line matching $expected" >&2
@@ -187,6 +193,16 @@ for expected in \
     exit 1
   fi
 done
+
+asset_count="$(grep '^audio_asset_count=' "$REPORT_PATH" | sed 's/^audio_asset_count=//')"
+loop_count="$(grep '^audio_loop_count=' "$REPORT_PATH" | sed 's/^audio_loop_count=//')"
+cue_count="$(grep '^audio_cue_count=' "$REPORT_PATH" | sed 's/^audio_cue_count=//')"
+
+if [[ "$asset_count" -le 0 || "$loop_count" -le 0 || "$cue_count" -le 0 ]]; then
+  echo "error: audio smoke expected positive asset, loop, and cue counts" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 
 echo "MosulGame audio smoke ok: $REPORT_PATH"
 cat "$REPORT_PATH"

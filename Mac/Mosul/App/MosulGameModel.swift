@@ -474,6 +474,7 @@ final class MosulGameModel: ObservableObject {
     private var lastAudioCivilianRisk: Int32 = 0
     private var lastAudioObjectiveControl: [UInt32: Int32] = [:]
     private var lastAudioOutcome: Int32 = 0
+    private var tacticalMapZoom = 1.0
     private var battleIndex: UInt32 = 1
     let runtimeResources: MosulRuntimeResources
     let runtimeAssetRoot: String
@@ -700,6 +701,7 @@ final class MosulGameModel: ObservableObject {
         guard selectedUnitCanReceiveOrders else {
             mode = .select
             playerNotice = "Select a \(commandSideTitle) unit before choosing \(nextMode.rawValue)."
+            recordAudioEvent(.invalidCommand(kind: MosulOrderKind(mapMode: nextMode)))
             return
         }
 
@@ -720,6 +722,7 @@ final class MosulGameModel: ObservableObject {
         guard selectedUnitCanReceiveOrders else {
             mode = .select
             playerNotice = "Select a \(commandSideTitle) unit before firing."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
 
@@ -897,6 +900,17 @@ final class MosulGameModel: ObservableObject {
         }
     }
 
+    func updateTacticalMapZoom(_ zoom: Double) {
+        let clamped = min(3.0, max(1.0, zoom.isFinite ? zoom : 1.0))
+        guard abs(clamped - tacticalMapZoom) > 0.005 else { return }
+
+        tacticalMapZoom = clamped
+        updateAudioContext(
+            visibleContactCount: playerVisibleContacts.count,
+            civilianRisk: score.civilianRisk
+        )
+    }
+
     func reset(battleIndex: UInt32 = 1) {
         guard let engine else { return }
         self.battleIndex = battleIndex
@@ -982,6 +996,7 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         guard selectedUnitCanReceiveOrders else {
             playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            recordAudioEvent(.invalidCommand(kind: .search))
             return
         }
 
@@ -997,6 +1012,7 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         guard selectedUnitCanReceiveOrders else {
             playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            recordAudioEvent(.invalidCommand(kind: .breach))
             return
         }
 
@@ -1012,6 +1028,12 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         guard selectedUnitCanReceiveOrders else {
             playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            recordAudioEvent(.invalidCommand(kind: .route))
+            return
+        }
+        guard interaction.routeAvailable else {
+            playerNotice = "Route blocked to \(interaction.label). Choose another path or clear the obstruction first."
+            recordAudioEvent(.routeBlocked(reason: interaction.state))
             return
         }
 
@@ -1037,18 +1059,22 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         guard let selectedUnit else {
             playerNotice = "Select a \(commandSideTitle) unit before firing."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
         guard let target = units.first(where: { $0.id == contact.targetUnitID }) else {
             playerNotice = "This contact is not tied to a target unit."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
         guard canIssueOrders(to: selectedUnit) else {
             playerNotice = "Select a \(commandSideTitle) unit before firing."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
         guard target.side != selectedUnit.side && target.side != 3 else {
             playerNotice = "Fire is only available against opposing unit contacts."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
 
@@ -1090,11 +1116,13 @@ final class MosulGameModel: ObservableObject {
         guard selectedUnitCanReceiveOrders else {
             playerNotice = "Select a \(commandSideTitle) unit before firing."
             mode = .select
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
 
         guard let contact = nearestFireTargetContact(x: x, y: y) else {
             playerNotice = "No valid fire target at that point. Click a highlighted opposing contact or cancel targeting."
+            recordAudioEvent(.invalidCommand(kind: .fire))
             return
         }
 
@@ -1131,6 +1159,7 @@ final class MosulGameModel: ObservableObject {
             guard selectedUnitCanReceiveOrders else {
                 playerNotice = "Select a \(commandSideTitle) unit before moving."
                 mode = .select
+                recordAudioEvent(.invalidCommand(kind: .move))
                 return
             }
             let unitName = selectedUnit.map(playerFacingUnitName) ?? "selected unit"
@@ -1144,6 +1173,7 @@ final class MosulGameModel: ObservableObject {
             guard selectedUnitCanReceiveOrders else {
                 playerNotice = "Select a \(commandSideTitle) unit before investigating."
                 mode = .select
+                recordAudioEvent(.invalidCommand(kind: .investigate))
                 return
             }
             let unitName = selectedUnit.map(playerFacingUnitName) ?? "selected unit"
@@ -1231,6 +1261,7 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         guard selectedUnitCanReceiveOrders else {
             playerNotice = "Select a \(commandSideTitle) unit before issuing orders."
+            recordAudioEvent(.invalidCommand(kind: MosulOrderKind(engineOrder: order)))
             return
         }
 
@@ -1249,6 +1280,7 @@ final class MosulGameModel: ObservableObject {
         _ = MosulEngineClearSelection(engine)
         refresh()
         playerNotice = "No confirmed contact at that position."
+        recordAudioEvent(.invalidCommand(kind: .unknown))
         return false
     }
 
@@ -1343,19 +1375,24 @@ final class MosulGameModel: ObservableObject {
 
     private func updateAudioContext(visibleContactCount: Int, civilianRisk: Int32) {
         let unresolvedRiskCount = civilians.filter { $0.risk > 0 }.count
+        let movingVisibleUnitCount = playerVisibleUnits.filter { $0.hasTarget }.count
+        let movingTrafficVehicleCount = trafficVehicles.filter(\.isMoving).count
         let casualtyPressure = Double(score.playerCasualties + score.civilianCasualties) * 0.08
         let contactPressure = Double(visibleContactCount) * 0.12
         let riskPressure = min(0.42, Double(max(0, civilianRisk)) / 120.0)
+        let movementPressure = min(0.12, Double(movingVisibleUnitCount) * 0.03)
         let suppressionPressure = min(0.18, Double(units.map(\.suppression).reduce(0, +)) / 500.0)
-        let tension = min(1.0, contactPressure + riskPressure + casualtyPressure + suppressionPressure)
+        let tension = min(1.0, contactPressure + riskPressure + casualtyPressure + movementPressure + suppressionPressure)
 
         audioContext = MosulAudioContext(
             tick: tick,
             selectedSide: playableSide,
             selectedUnitID: selectedUnit?.id,
-            mapZoom: 1.0,
+            mapZoom: tacticalMapZoom,
             visibleContactCount: visibleContactCount,
             unresolvedCivilianRiskCount: unresolvedRiskCount,
+            movingVisibleUnitCount: movingVisibleUnitCount,
+            movingTrafficVehicleCount: movingTrafficVehicleCount,
             activeTargetingMode: mode == .select ? nil : mode,
             tension: tension
         )

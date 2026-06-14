@@ -67,6 +67,12 @@ struct TacticalMapView: View {
             .accessibilityLabel("Tactical map")
             .accessibilityValue("Tick \(model.tick), \(model.playerVisibleUnits.count) visible units, \(model.playerVisibleContacts.count) contact reports, \(zoomPercent)% zoom")
             .accessibilityHint("Select units or issue the active map order by clicking the map. Scroll when zoomed in.")
+            .onAppear {
+                model.updateTacticalMapZoom(Double(zoomScale))
+            }
+            .onChange(of: zoomScale) { _, scale in
+                model.updateTacticalMapZoom(Double(scale))
+            }
         }
     }
 

@@ -128,8 +128,8 @@ The first sound task is deliberately mute-first: MosulGame must expose an
 always-reachable main-window speaker control before ambience, radio, speech, or
 weapon layers become release defaults.
 
-Current soundscape cycle: S5, tactical feedback pass.
-Completed soundscape cycles: S1-S4 on 2026-06-14.
+Current soundscape cycle: S7, speech and radio.
+Completed soundscape cycles: S1-S6 on 2026-06-14.
 
 ### Soundscape Definition
 
@@ -166,9 +166,9 @@ The first public soundscape is done when:
 | S2 | completed 2026-06-14 | Runtime audio manifest | Added `modernerKrieg/assets/mosul/audio/`, `mosul_audio_manifest.json`, an audio credits document, and audio manifest/license/path/format validation in the runtime-resource script. | Missing audio files, unapproved licenses, absent attribution, unsafe paths, unsupported extensions, and invalid WAV sample properties fail validation before release packaging. |
 | S3 | completed 2026-06-14 | Mixer and loop engine | Built the `AVAudioEngine` graph with master, ambience, tactical, radio, and UI mixers; load loops from the manifest; added safe configure/start/stop, mute/unmute, volume, and ambience-ducking behavior. | The bundled app audio smoke can configure, mute, unmute, report context, and quit without requiring speaker output. |
 | S4 | completed 2026-06-14 | Structured audio events | Added `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, tick, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | Snapshot and accessibility smoke reports verify expected audio events textually without requiring speakers. |
-| S5 | next | Tactical feedback pass | Map UI and gameplay events to restrained one-shots: order confirmation, invalid command, tick resolution, contact reveal, route blocked, fire resolved, objective complete, risk warning. | A new player receives clearer feedback for movement, fire, watch/hold, contact, and risk while every cue has visual/text parity. |
-| S6 | pending | Ambient city and engines | Add low/high city beds, generator/engine layers, zoom/context mixing, and movement/transit accents. | The map feels alive at low volume, changes with zoom/tension, and never reveals hidden tactical information. |
-| S7 | pending | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
+| S5 | completed 2026-06-14 | Tactical feedback pass | Mapped structured gameplay events to restrained generated one-shots for order arm/confirm, invalid command, tick, movement, contact reveal, route/LOS blocked, fire resolved, objective, and civilian-risk warning. | Audio smoke probes representative event families, snapshot evidence keeps visual/text parity through player notices and reports, and invalid/blocked actions now produce structured feedback events. |
+| S6 | completed 2026-06-14 | Ambient city and engines | Added original low/high city, generator, and distant-engine loops; connected zoom, tension, visible movement, and traffic movement into bus and loop mixing; added movement/transit accents. | The bundled app loads 14 manifest assets, starts 4 low-volume ambience loops in playable context, changes mix from zoom/tension/movement context, and avoids hidden hostile positional audio. |
+| S7 | next | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
 | S8 | pending | Audio QA and release hardening | Add audio evidence report, accessibility checks, clean-machine bundle checks, size budget, credits review, and release documentation. | Release DMGs include validated audio assets and credits; muted mode, no-audio launch, and normal playback all pass QA. |
 
 ## Current Public Baseline
@@ -190,6 +190,8 @@ The first public soundscape is done when:
 - MosulGame resolves bundled runtime resources before falling back to the source checkout, and has a `--check-runtime-resources` app argument for LaunchServices-based bundle checks.
 - MosulGame has a mute-first soundscape foundation with an `AVAudioEngine` master/ambience/tactical/radio/UI mixer graph, persisted mute/volume state, a command-key mute shortcut, and a `--disable-audio` deterministic launch path.
 - `scripts/check_mosulgame_audio_smoke.sh` verifies the bundled app audio controller can configure, mute, unmute, report context, and quit; snapshot/accessibility evidence now records structured audio events.
+- The soundscape runtime now includes 10 original generated tactical/UI cue WAVs and 4 original low-volume ambience loop WAVs, all listed in the bundled audio manifest and credits.
+- Gameplay events now trigger restrained cue playback for orders, invalid commands, route/LOS blocks, ticks, movement, contacts, fire, objectives, and civilian risk; ambience mix responds to zoom, tension, visible unit movement, and traffic movement without revealing hidden enemies.
 - MosulGame can require bundled runtime resources with `--require-bundled-runtime` and write a `--runtime-check-output` stamp for deterministic launch-smoke verification.
 - The Mosul C bridge now treats its creation argument as a runtime asset root and validates required scenario/map/marker runtime files before loading the game.
 - `scripts/check_mosulgame_runtime_resources.py --app <MosulGame.app>` validates the built MosulGame app bundle's runtime payload, and the Mac smoke script runs that check in CI for both the built app and a copied app outside the checkout.
