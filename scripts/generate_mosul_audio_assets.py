@@ -12,6 +12,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO_ROOT = ROOT / "modernerKrieg" / "assets" / "mosul" / "audio"
 SAMPLE_RATE = 48_000
+CITY_LOW_BED_GAIN = 2.35
+CITY_HIGH_BED_GAIN = 3.0
+LOCAL_ENGINE_BED_GAIN = 2.2
+MURMUR_BED_GAIN = 5.0
 
 
 def envelope(position: float, attack: float = 0.02, release: float = 0.05) -> float:
@@ -122,25 +126,45 @@ def main() -> None:
     loop(
         "loops/ambient_city_low.wav",
         3.0,
-        [(55, 0.030, 0.0), (88, 0.020, 0.4), (176, 0.010, 1.1), (233, 0.008, 2.2)],
+        [
+            (55, 0.030 * CITY_LOW_BED_GAIN, 0.0),
+            (88, 0.020 * CITY_LOW_BED_GAIN, 0.4),
+            (176, 0.010 * CITY_LOW_BED_GAIN, 1.1),
+            (233, 0.008 * CITY_LOW_BED_GAIN, 2.2),
+        ],
     )
     loop(
         "loops/ambient_city_high.wav",
         3.0,
-        [(110, 0.018, 0.2), (220, 0.014, 0.9), (352, 0.012, 1.7), (704, 0.006, 2.4)],
+        [
+            (110, 0.018 * CITY_HIGH_BED_GAIN, 0.2),
+            (220, 0.014 * CITY_HIGH_BED_GAIN, 0.9),
+            (352, 0.012 * CITY_HIGH_BED_GAIN, 1.7),
+            (704, 0.006 * CITY_HIGH_BED_GAIN, 2.4),
+        ],
     )
     loop(
         "loops/ambient_generator.wav",
         3.0,
-        [(50, 0.032, 0.0), (100, 0.018, 0.5), (150, 0.012, 1.0), (300, 0.006, 2.0)],
+        [
+            (50, 0.032 * LOCAL_ENGINE_BED_GAIN, 0.0),
+            (100, 0.018 * LOCAL_ENGINE_BED_GAIN, 0.5),
+            (150, 0.012 * LOCAL_ENGINE_BED_GAIN, 1.0),
+            (300, 0.006 * LOCAL_ENGINE_BED_GAIN, 2.0),
+        ],
     )
     loop(
         "loops/ambient_engine_distant.wav",
         3.0,
-        [(38, 0.032, 0.3), (76, 0.018, 1.1), (114, 0.010, 1.9), (152, 0.007, 2.7)],
+        [
+            (38, 0.032 * LOCAL_ENGINE_BED_GAIN, 0.3),
+            (76, 0.018 * LOCAL_ENGINE_BED_GAIN, 1.1),
+            (114, 0.010 * LOCAL_ENGINE_BED_GAIN, 1.9),
+            (152, 0.007 * LOCAL_ENGINE_BED_GAIN, 2.7),
+        ],
     )
-    murmur_loop("loops/civilian_murmur_low.wav", 3.0, 145, 0.026)
-    murmur_loop("loops/civilian_murmur_high.wav", 3.0, 175, 0.022)
+    murmur_loop("loops/civilian_murmur_low.wav", 3.0, 145, 0.026 * MURMUR_BED_GAIN)
+    murmur_loop("loops/civilian_murmur_high.wav", 3.0, 175, 0.022 * MURMUR_BED_GAIN)
 
 
 if __name__ == "__main__":

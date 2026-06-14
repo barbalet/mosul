@@ -153,7 +153,7 @@ final class MosulAudioController: ObservableObject {
     private let masterMixer = AVAudioMixerNode()
     private var busMixers: [MosulAudioBus: AVAudioMixerNode] = [:]
     private var loopPlayers: [String: AVAudioPlayerNode] = [:]
-    private var loopFiles: [String: AVAudioFile] = [:]
+    private var loopBuffers: [String: AVAudioPCMBuffer] = [:]
     private var loopAssets: [String: MosulAudioAsset] = [:]
     private var oneShotPlayers: [String: AVAudioPlayerNode] = [:]
     private var oneShotFiles: [String: AVAudioFile] = [:]
@@ -209,6 +209,10 @@ final class MosulAudioController: ObservableObject {
         loopPlayers.count
     }
 
+    var playingLoopCount: Int {
+        loopPlayers.values.filter(\.isPlaying).count
+    }
+
     var loadedCueCount: Int {
         oneShotPlayers.count
     }
@@ -260,6 +264,7 @@ final class MosulAudioController: ObservableObject {
             try configureGraphIfNeeded()
             try loadAssets(manifest.assets, relativeTo: manifestURL.deletingLastPathComponent())
             applyMixerVolumes()
+            startLoopPlaybackIfNeeded()
             refreshStatus()
         } catch {
             status = .manifestInvalid(error.localizedDescription)
@@ -433,11 +438,19 @@ final class MosulAudioController: ObservableObject {
 
             switch asset.kind {
             case .loop:
+                guard let buffer = AVAudioPCMBuffer(
+                    pcmFormat: file.processingFormat,
+                    frameCapacity: AVAudioFrameCount(file.length)
+                ) else {
+                    throw MosulAudioManifestError.unreadableLoop(asset.id)
+                }
+                try file.read(into: buffer)
+
                 let player = AVAudioPlayerNode()
                 engine.attach(player)
                 engine.connect(player, to: mixer(for: asset.bus), format: file.processingFormat)
                 loopPlayers[asset.id] = player
-                loopFiles[asset.id] = file
+                loopBuffers[asset.id] = buffer
                 loopAssets[asset.id] = asset
             case .oneShot, .voice:
                 let player = AVAudioPlayerNode()
@@ -461,7 +474,7 @@ final class MosulAudioController: ObservableObject {
             engine.detach(player)
         }
         loopPlayers.removeAll()
-        loopFiles.removeAll()
+        loopBuffers.removeAll()
         loopAssets.removeAll()
         oneShotPlayers.removeAll()
         oneShotFiles.removeAll()
@@ -494,39 +507,17 @@ final class MosulAudioController: ObservableObject {
 
     private func startLoop(_ assetID: String) {
         guard let player = loopPlayers[assetID],
-              let file = loopFiles[assetID],
+              let buffer = loopBuffers[assetID],
               !player.isPlaying else {
             return
         }
 
-        scheduleLoop(assetID, file: file, player: player)
+        player.scheduleBuffer(buffer, at: nil, options: [.loops])
         player.play()
     }
 
-    private func scheduleLoop(_ assetID: String, file: AVAudioFile, player: AVAudioPlayerNode) {
-        player.scheduleFile(file, at: nil) { [weak self] in
-            Task { @MainActor in
-                self?.loopDidFinish(assetID)
-            }
-        }
-    }
-
-    private func loopDidFinish(_ assetID: String) {
-        guard shouldRunLoops,
-              engine.isRunning,
-              let player = loopPlayers[assetID],
-              let file = loopFiles[assetID] else {
-            return
-        }
-
-        scheduleLoop(assetID, file: file, player: player)
-        if !player.isPlaying {
-            player.play()
-        }
-    }
-
     private var shouldRunLoops: Bool {
-        !isSilent && !loopPlayers.isEmpty && context.selectedSide != nil
+        !isSilent && !loopPlayers.isEmpty
     }
 
     private func applyMixerVolumes() {
@@ -554,18 +545,18 @@ final class MosulAudioController: ObservableObject {
             let tags = Set(asset.tags)
             var volume = 0.16
             if tags.contains("murmur") {
-                volume = (0.07 + 0.05 * (1.0 - zoomFocus)) * (1.0 - 0.42 * tension)
+                volume = (0.22 + 0.12 * (1.0 - zoomFocus)) * (1.0 - 0.28 * tension)
             } else if tags.contains("low_tension") {
-                volume = 0.34 * (1.0 - 0.46 * tension) * (1.0 - 0.18 * zoomFocus)
+                volume = 0.72 * (1.0 - 0.36 * tension) * (1.0 - 0.12 * zoomFocus)
             } else if tags.contains("high_tension") {
-                volume = 0.04 + 0.26 * tension
+                volume = 0.10 + 0.46 * tension
             } else if tags.contains("generator") {
-                volume = 0.10 + 0.12 * zoomFocus
+                volume = 0.30 + 0.20 * zoomFocus
             } else if tags.contains("engine") {
-                volume = 0.05 + 0.18 * movement + 0.06 * zoomFocus
+                volume = 0.16 + 0.30 * movement + 0.12 * zoomFocus
             }
 
-            player.volume = Float(min(0.44, max(0.02, volume)))
+            player.volume = Float(min(0.86, max(0.06, volume)))
         }
     }
 
@@ -643,11 +634,14 @@ final class MosulAudioController: ObservableObject {
 
 private enum MosulAudioManifestError: LocalizedError {
     case unsupportedSchema(Int)
+    case unreadableLoop(String)
 
     var errorDescription: String? {
         switch self {
         case .unsupportedSchema(let version):
             return "unsupported audio manifest schema_version \(version)"
+        case .unreadableLoop(let assetID):
+            return "could not prepare looping audio asset \(assetID)"
         }
     }
 }

@@ -211,9 +211,13 @@ struct MosulApp: App {
         defaults.set(MosulAudioSettings.defaultMasterVolume, forKey: MosulAudioSettings.masterVolumeDefaultsKey)
 
         let audio = MosulAudioController(userDefaults: defaults, launchArguments: CommandLine.arguments)
+        audio.configure(runtimeResources: model.runtimeResources)
+        audio.updateContext(model.audioContext)
+        let preBattleStatus = audio.status.description
+        let preBattlePlayingLoopCount = audio.playingLoopCount
+
         model.startPlayableBattle(as: .usPatrol)
         model.updateTacticalMapZoom(2.25)
-        audio.configure(runtimeResources: model.runtimeResources)
         audio.updateContext(model.audioContext)
         let configuredStatus = audio.status.description
 
@@ -248,6 +252,8 @@ struct MosulApp: App {
             "ok=true",
             "check=mosulgame_audio_smoke",
             "runtime_source=\(model.runtimeResources.source.description)",
+            "audio_pre_battle_status=\(preBattleStatus)",
+            "audio_pre_battle_playing_loop_count=\(preBattlePlayingLoopCount)",
             "audio_status=\(configuredStatus)",
             "audio_final_status=\(finalStatus)",
             "audio_asset_count=\(audio.loadedAssetCount)",

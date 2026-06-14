@@ -50,6 +50,13 @@ The main window must always provide a speaker icon control:
   to finish.
 - First-run overlays: if ambience begins before side selection, the same mute
   affordance must also be visible in the onboarding/side-selection overlay.
+- Ambience should begin as soon as runtime audio is configured and the user has
+  not muted sound; it should not wait for side selection or the first Step.
+- Continuous beds should be scheduled as true looping audio buffers, not
+  one-shot cues that restart only when gameplay events occur.
+- Generated ambience loops must be loud enough at source to read as a constant
+  bed under tactical cues; the audio smoke path checks bundled loop RMS so the
+  atmosphere cannot regress into step-only audibility.
 - Automation: evidence, runtime checks, and performance checks should pass a
   launch argument such as `--disable-audio` so CI never depends on audio output.
 - Accessibility: the control needs VoiceOver label, hint, and current value:
@@ -203,6 +210,7 @@ The base bed should be quiet, wide, and layered:
 
 The bed should respond to tactical context:
 
+- before side selection: quiet but audible neutral city texture
 - zoomed out: wider, flatter, less positional detail
 - zoomed in: more local texture, softer global wash
 - selected unit near road or vehicle: slightly more engine presence

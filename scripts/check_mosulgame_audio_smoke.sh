@@ -14,8 +14,8 @@ usage() {
 Usage: scripts/check_mosulgame_audio_smoke.sh [options]
 
 Builds MosulGame.app, runs the app-side audio smoke mode, and verifies that the
-audio controller can configure, mute, unmute, report context, and exit without
-requiring speaker output.
+audio controller can configure continuous ambience, mute, unmute, report context,
+and exit without requiring speaker output.
 
 Options:
   --report PATH             Text report path. Defaults to snapshots/evidence/mosul-audio-smoke.txt.
@@ -114,6 +114,50 @@ if [[ ! -x "$EXECUTABLE_PATH" ]]; then
   exit 1
 fi
 
+AUDIO_ROOT="$APP_PATH/Contents/Resources/mosul-runtime/modernerKrieg/assets/mosul/audio"
+python3 - "$AUDIO_ROOT" <<'PY'
+import json
+import math
+import struct
+import sys
+import wave
+from pathlib import Path
+
+
+audio_root = Path(sys.argv[1])
+manifest_path = audio_root / "mosul_audio_manifest.json"
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def rms_for_wav(path):
+    with wave.open(str(path), "rb") as wav:
+        frames = wav.readframes(wav.getnframes())
+        sample_width = wav.getsampwidth()
+    if sample_width != 2:
+        raise RuntimeError(f"{path} is not 16-bit PCM")
+    samples = struct.unpack("<" + ("h" * (len(frames) // 2)), frames)
+    if not samples:
+        raise RuntimeError(f"{path} contains no audio samples")
+    return math.sqrt(sum(sample * sample for sample in samples) / len(samples)) / 32768.0
+
+
+errors = []
+for asset in manifest.get("assets", []):
+    if asset.get("kind") != "loop":
+        continue
+    asset_id = asset.get("id", "<unknown>")
+    rms = rms_for_wav(audio_root / asset["file"])
+    tags = set(asset.get("tags", []))
+    minimum_rms = 0.030 if "murmur" in tags else 0.050
+    if rms < minimum_rms:
+        errors.append(f"{asset_id} loop RMS {rms:.4f} is below audible bed threshold {minimum_rms:.4f}")
+
+if errors:
+    for error in errors:
+        print(f"error: {error}", file=sys.stderr)
+    sys.exit(1)
+PY
+
 terminate_app() {
   local escaped_app_path
   local pids
@@ -177,6 +221,8 @@ if ! grep -q '^ok=true$' "$REPORT_PATH"; then
 fi
 
 for expected in \
+  '^audio_pre_battle_status=.*running' \
+  '^audio_pre_battle_playing_loop_count=' \
   '^audio_status=' \
   '^audio_asset_count=' \
   '^audio_loop_count=' \
@@ -200,9 +246,10 @@ asset_count="$(grep '^audio_asset_count=' "$REPORT_PATH" | sed 's/^audio_asset_c
 loop_count="$(grep '^audio_loop_count=' "$REPORT_PATH" | sed 's/^audio_loop_count=//')"
 cue_count="$(grep '^audio_cue_count=' "$REPORT_PATH" | sed 's/^audio_cue_count=//')"
 voice_count="$(grep '^audio_voice_count=' "$REPORT_PATH" | sed 's/^audio_voice_count=//')"
+pre_battle_loop_count="$(grep '^audio_pre_battle_playing_loop_count=' "$REPORT_PATH" | sed 's/^audio_pre_battle_playing_loop_count=//')"
 
-if [[ "$asset_count" -le 0 || "$loop_count" -le 0 || "$cue_count" -le 0 || "$voice_count" -le 0 ]]; then
-  echo "error: audio smoke expected positive asset, loop, cue, and voice counts" >&2
+if [[ "$asset_count" -le 0 || "$loop_count" -le 0 || "$cue_count" -le 0 || "$voice_count" -le 0 || "$pre_battle_loop_count" -le 0 ]]; then
+  echo "error: audio smoke expected positive asset, loop, cue, voice, and pre-battle playing-loop counts" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi
