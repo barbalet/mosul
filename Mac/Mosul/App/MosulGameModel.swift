@@ -464,9 +464,16 @@ final class MosulGameModel: ObservableObject {
     @Published var mode: MosulMapMode = .select
     @Published var playableSide: MosulPlayableSide?
     @Published var playerNotice = ""
+    @Published private(set) var audioEvents: [MosulAudioEvent] = []
+    @Published private(set) var audioContext = MosulAudioContext.empty
 
     private var engine: OpaquePointer?
     private var mapLevelVisibilityInitialized = false
+    private var audioBaselineInitialized = false
+    private var lastAudioVisibleContactIDs: Set<UInt32> = []
+    private var lastAudioCivilianRisk: Int32 = 0
+    private var lastAudioObjectiveControl: [UInt32: Int32] = [:]
+    private var lastAudioOutcome: Int32 = 0
     private var battleIndex: UInt32 = 1
     let runtimeResources: MosulRuntimeResources
     let runtimeAssetRoot: String
@@ -698,6 +705,7 @@ final class MosulGameModel: ObservableObject {
 
         mode = nextMode
         playerNotice = nextMode.prompt
+        recordAudioEvent(.orderArmed(kind: MosulOrderKind(mapMode: nextMode)))
     }
 
     func beginMoveOrder() {
@@ -721,6 +729,7 @@ final class MosulGameModel: ObservableObject {
         } else {
             playerNotice = "Fire targeting active. Click a highlighted opposing contact."
         }
+        recordAudioEvent(.orderArmed(kind: .fire))
     }
 
     func cancelTargeting() {
@@ -891,15 +900,19 @@ final class MosulGameModel: ObservableObject {
     func reset(battleIndex: UInt32 = 1) {
         guard let engine else { return }
         self.battleIndex = battleIndex
+        audioEvents.removeAll()
+        audioBaselineInitialized = false
         _ = MosulEngineResetBattle(engine, battleIndex)
         refresh()
     }
 
     func startPlayableBattle(as side: MosulPlayableSide) {
         playableSide = side
-        playerNotice = "Command selected: \(side.title)."
         reset(battleIndex: battleIndex)
+        playerNotice = "Command selected: \(side.title)."
+        recordAudioEvent(.battleStarted(side: side))
         selectFirstControlledUnit()
+        recordSelectedAudioEvent()
     }
 
     func resetPlayableBattle() {
@@ -907,6 +920,10 @@ final class MosulGameModel: ObservableObject {
         reset(battleIndex: battleIndex)
         if playableSide != nil {
             selectFirstControlledUnit()
+            if let previousSide {
+                recordAudioEvent(.battleStarted(side: previousSide))
+                recordSelectedAudioEvent()
+            }
         }
         if let previousSide {
             playerNotice = "Battle reset for \(previousSide.title)."
@@ -917,12 +934,14 @@ final class MosulGameModel: ObservableObject {
         guard let engine else { return }
         _ = MosulEngineStep(engine, 1)
         refresh()
+        recordAudioEvent(.tickResolved(tick: tick))
     }
 
     func runAI(steps: UInt32 = 1) {
         guard let engine else { return }
         _ = MosulEngineRunAI(engine, steps)
         refresh()
+        recordAudioEvent(.tickResolved(tick: tick))
     }
 
     func runOpponentAI(steps: UInt32 = 1) {
@@ -934,6 +953,7 @@ final class MosulGameModel: ObservableObject {
             _ = MosulEngineRunAI(engine, steps)
         }
         refresh()
+        recordAudioEvent(.tickResolved(tick: tick))
     }
 
     func select(unitID: UInt32) {
@@ -942,6 +962,7 @@ final class MosulGameModel: ObservableObject {
         refresh()
         if validateSelectionVisibility(engine) {
             updateSelectionNotice()
+            recordSelectedAudioEvent()
         }
     }
 
@@ -969,6 +990,7 @@ final class MosulGameModel: ObservableObject {
         }
         refresh()
         playerNotice = "Search issued for \(interaction.label)."
+        recordAudioEvent(.orderPlaced(kind: .search))
     }
 
     func issueBreach(_ interaction: MosulInteraction) {
@@ -983,6 +1005,7 @@ final class MosulGameModel: ObservableObject {
         }
         refresh()
         playerNotice = "Breach issued for \(interaction.label)."
+        recordAudioEvent(.orderPlaced(kind: .breach))
     }
 
     func routeToInteraction(_ interaction: MosulInteraction) {
@@ -997,6 +1020,7 @@ final class MosulGameModel: ObservableObject {
         }
         refresh()
         playerNotice = "Route set to \(interaction.label)."
+        recordAudioEvent(.orderPlaced(kind: .route))
     }
 
     func canFire(at contact: MosulContact) -> Bool {
@@ -1036,16 +1060,29 @@ final class MosulGameModel: ObservableObject {
 
         guard ok else {
             playerNotice = "Fire failed: no valid selected unit or target."
+            recordAudioEvent(
+                .fireResolved(attackerID: selectedUnit.id, targetID: target.id, outcome: .failed)
+            )
             return
         }
 
         if !fireResult.visible {
             playerNotice = "\(attackerName) has no line of sight to \(targetName)."
+            recordAudioEvent(.lineOfSightBlocked)
+            recordAudioEvent(
+                .fireResolved(attackerID: selectedUnit.id, targetID: target.id, outcome: .blockedLineOfSight)
+            )
         } else if fireResult.shots_fired <= 0 {
             playerNotice = "\(attackerName) cannot fire on \(targetName): out of range, out of ammo, or no eligible shooters."
+            recordAudioEvent(
+                .fireResolved(attackerID: selectedUnit.id, targetID: target.id, outcome: .noShots)
+            )
         } else {
             let riskText = fireResult.civilian_risk_added > 0 ? ", +\(fireResult.civilian_risk_added) civilian risk" : ""
             playerNotice = "\(attackerName) fired on \(targetName): \(fireResult.shots_fired) shots, \(fireResult.hits) hits, \(fireResult.casualties) casualties, +\(fireResult.suppression_added) suppression\(riskText)."
+            recordAudioEvent(
+                .fireResolved(attackerID: selectedUnit.id, targetID: target.id, outcome: .fired)
+            )
         }
     }
 
@@ -1101,6 +1138,7 @@ final class MosulGameModel: ObservableObject {
             mode = .select
             refresh()
             playerNotice = "Move target set for \(unitName)."
+            recordAudioEvent(.orderPlaced(kind: .move))
             return
         case .investigate:
             guard selectedUnitCanReceiveOrders else {
@@ -1113,6 +1151,7 @@ final class MosulGameModel: ObservableObject {
             mode = .select
             refresh()
             playerNotice = "Investigation target set for \(unitName)."
+            recordAudioEvent(.orderPlaced(kind: .investigate))
             return
         case .fire:
             fireAtMapPoint(x: x, y: y)
@@ -1145,6 +1184,7 @@ final class MosulGameModel: ObservableObject {
         refreshTacticalMapLevelVisibility()
         refreshScore(engine)
         refreshAfterAction(engine)
+        refreshAudioState()
     }
 
     private func refreshMapLevels(_ engine: OpaquePointer) {
@@ -1198,6 +1238,7 @@ final class MosulGameModel: ObservableObject {
         _ = MosulEngineIssueSelectedOrder(engine, order)
         refresh()
         playerNotice = "\(label) issued to \(unitName)."
+        recordAudioEvent(.orderPlaced(kind: MosulOrderKind(engineOrder: order)))
     }
 
     private func validateSelectionVisibility(_ engine: OpaquePointer) -> Bool {
@@ -1234,6 +1275,100 @@ final class MosulGameModel: ObservableObject {
 
         _ = MosulEngineSelectUnit(engine, unit.id)
         refresh()
+    }
+
+    private func recordSelectedAudioEvent() {
+        guard let selectedUnit,
+              isUnitPlayerVisible(selectedUnit),
+              let side = MosulPlayableSide(rawValue: selectedUnit.side) else {
+            return
+        }
+
+        recordAudioEvent(.unitSelected(id: selectedUnit.id, side: side))
+    }
+
+    private func recordAudioEvent(_ event: MosulAudioEvent) {
+        audioEvents.append(event)
+        if audioEvents.count > 256 {
+            audioEvents.removeFirst(audioEvents.count - 256)
+        }
+    }
+
+    private func refreshAudioState() {
+        let visibleContactIDs = Set(playerVisibleContacts.map(\.id))
+        let civilianRisk = score.civilianRisk
+        let objectiveControl = Dictionary(uniqueKeysWithValues: objectives.map { ($0.id, $0.controllingSide) })
+        let outcome = afterAction.score.outcome
+
+        updateAudioContext(
+            visibleContactCount: visibleContactIDs.count,
+            civilianRisk: civilianRisk
+        )
+
+        guard audioBaselineInitialized else {
+            lastAudioVisibleContactIDs = visibleContactIDs
+            lastAudioCivilianRisk = civilianRisk
+            lastAudioObjectiveControl = objectiveControl
+            lastAudioOutcome = outcome
+            audioBaselineInitialized = true
+            return
+        }
+
+        for contactID in visibleContactIDs.subtracting(lastAudioVisibleContactIDs).sorted() {
+            recordAudioEvent(.contactRevealed(contactID: contactID))
+        }
+
+        if civilianRisk > lastAudioCivilianRisk {
+            recordAudioEvent(.civilianRiskChanged(level: civilianRiskLevel(for: civilianRisk)))
+        }
+
+        for objective in objectives {
+            let previous = lastAudioObjectiveControl[objective.id]
+            if let previous,
+               previous != objective.controllingSide,
+               objective.controllingSide != 0 {
+                recordAudioEvent(.objectiveResolved(id: objective.id))
+            }
+        }
+
+        if outcome != lastAudioOutcome, outcome != 0 {
+            recordAudioEvent(.afterAction(outcome: MosulOutcomeBand(scoreOutcome: outcome)))
+        }
+
+        lastAudioVisibleContactIDs = visibleContactIDs
+        lastAudioCivilianRisk = civilianRisk
+        lastAudioObjectiveControl = objectiveControl
+        lastAudioOutcome = outcome
+    }
+
+    private func updateAudioContext(visibleContactCount: Int, civilianRisk: Int32) {
+        let unresolvedRiskCount = civilians.filter { $0.risk > 0 }.count
+        let casualtyPressure = Double(score.playerCasualties + score.civilianCasualties) * 0.08
+        let contactPressure = Double(visibleContactCount) * 0.12
+        let riskPressure = min(0.42, Double(max(0, civilianRisk)) / 120.0)
+        let suppressionPressure = min(0.18, Double(units.map(\.suppression).reduce(0, +)) / 500.0)
+        let tension = min(1.0, contactPressure + riskPressure + casualtyPressure + suppressionPressure)
+
+        audioContext = MosulAudioContext(
+            tick: tick,
+            selectedSide: playableSide,
+            selectedUnitID: selectedUnit?.id,
+            mapZoom: 1.0,
+            visibleContactCount: visibleContactCount,
+            unresolvedCivilianRiskCount: unresolvedRiskCount,
+            activeTargetingMode: mode == .select ? nil : mode,
+            tension: tension
+        )
+    }
+
+    private func civilianRiskLevel(for risk: Int32) -> MosulCivilianRiskAudioLevel {
+        if risk >= 60 {
+            return .high
+        }
+        if risk >= 25 {
+            return .medium
+        }
+        return .low
     }
 
     private func refreshUnits(_ engine: OpaquePointer) {

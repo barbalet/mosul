@@ -287,5 +287,25 @@ if ! grep -q '^ok=true$' "$REPORT_PATH"; then
   exit 1
 fi
 
+for required_audio_event in battle_started unit_selected order_armed order_placed; do
+  if ! grep -q "^audio_event_names=.*${required_audio_event}" "$REPORT_PATH"; then
+    echo "error: snapshot evidence report missing audio event: $required_audio_event" >&2
+    cat "$REPORT_PATH" >&2
+    exit 1
+  fi
+done
+
+if [[ "$AI_TICKS" -gt 0 ]] && ! grep -q '^audio_event_names=.*tick_resolved' "$REPORT_PATH"; then
+  echo "error: snapshot evidence report missing audio event: tick_resolved" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+
+if ! grep -q '^audio_context=' "$REPORT_PATH"; then
+  echo "error: snapshot evidence report missing audio_context" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+
 echo "Snapshot evidence written to $OUTPUT_PATH"
 echo "Snapshot evidence report written to $REPORT_PATH"

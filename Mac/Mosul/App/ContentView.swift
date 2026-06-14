@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var showMovementCoach = false
     @State private var movementCoachDismissed = false
     @State private var movementCoachUnitID: UInt32?
+    @State private var handledAudioEventCount = 0
 
     var body: some View {
         Group {
@@ -33,12 +34,26 @@ struct ContentView: View {
         }
         .onAppear {
             audio.configure(runtimeResources: model.runtimeResources)
+            audio.updateContext(model.audioContext)
         }
         .onChange(of: model.selectedUnit?.id) { _, _ in
             presentMovementCoachIfNeeded()
         }
         .onChange(of: showHowToPlay) { _, _ in
             presentMovementCoachIfNeeded()
+        }
+        .onChange(of: model.audioContext) { _, context in
+            audio.updateContext(context)
+        }
+        .onChange(of: model.audioEvents) { _, events in
+            if events.count < handledAudioEventCount {
+                handledAudioEventCount = 0
+            }
+
+            for event in events.dropFirst(handledAudioEventCount) {
+                audio.play(event)
+            }
+            handledAudioEventCount = events.count
         }
     }
 

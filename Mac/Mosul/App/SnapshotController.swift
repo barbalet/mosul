@@ -171,7 +171,12 @@ enum SnapshotController {
         }
 
         let target = evidenceOrderTarget(for: selectedUnit, in: model)
-        model.mode = request.order.mapMode
+        switch request.order {
+        case .move:
+            model.beginMoveOrder()
+        case .investigate:
+            model.beginInvestigateOrder()
+        }
         model.handleMapTap(x: target.x, y: target.y)
 
         let report = try evidenceReport(for: model, request: request)
@@ -246,13 +251,23 @@ enum SnapshotController {
         let afterActionTextPresent = !model.afterAction.narrative.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !model.afterAction.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let orderIssued = selectedUnit.order == request.order.engineOrder && selectedUnit.hasTarget
-        let checks = [
+        let audioEventNames = Set(model.audioEvents.map(\.reportName))
+        var checks = [
             ("side_selected", model.playableSide == request.side),
             ("selected_unit_present", true),
             ("order_issued", orderIssued),
             ("upper_floor_overlay_visible", !visibleOverlayLevels.isEmpty),
-            ("after_action_text_present", afterActionTextPresent)
+            ("after_action_text_present", afterActionTextPresent),
+            ("audio_battle_started", audioEventNames.contains(MosulAudioEvent.battleStarted(side: request.side).reportName)),
+            ("audio_unit_selected", audioEventNames.contains(MosulAudioEvent.unitSelected(id: selectedUnit.id, side: request.side).reportName)),
+            ("audio_order_armed", audioEventNames.contains(MosulAudioEvent.orderArmed(kind: MosulOrderKind(mapMode: request.order.mapMode)).reportName)),
+            ("audio_order_placed", audioEventNames.contains(MosulAudioEvent.orderPlaced(kind: MosulOrderKind(mapMode: request.order.mapMode)).reportName)),
+            ("audio_context_tick", model.audioContext.tick == model.tick)
         ]
+
+        if request.aiTicks > 0 {
+            checks.append(("audio_tick_resolved", audioEventNames.contains(MosulAudioEvent.tickResolved(tick: model.tick).reportName)))
+        }
 
         let failedChecks = checks.filter { !$0.1 }.map(\.0)
         if !failedChecks.isEmpty {
@@ -276,6 +291,10 @@ enum SnapshotController {
             "visible_overlay_levels=\(overlayNames)",
             "after_action_text_present=\(afterActionTextPresent)",
             "after_action_outcome=\(outcomeName(model.afterAction.score.outcome))",
+            "audio_event_count=\(model.audioEvents.count)",
+            "audio_event_names=\(model.audioEvents.map(\.reportName).joined(separator: ","))",
+            "audio_events=\(model.audioEvents.map(\.reportLine).joined(separator: "|"))",
+            "audio_context=\(model.audioContext.reportSummary)",
             "tick=\(model.tick)"
         ].joined(separator: "\n") + "\n"
     }

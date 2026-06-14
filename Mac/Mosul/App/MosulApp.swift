@@ -9,6 +9,8 @@ struct MosulApp: App {
     private static let runtimeCheckOutputArgument = "--runtime-check-output"
     private static let performanceBudgetArgument = "--performance-budget"
     private static let performanceReportArgument = "--performance-report"
+    private static let audioSmokeArgument = "--audio-smoke"
+    private static let audioSmokeReportArgument = "--audio-smoke-report"
     static let requireBundledRuntimeArgument = "--require-bundled-runtime"
     static let disableAudioArgument = "--disable-audio"
 
@@ -16,15 +18,21 @@ struct MosulApp: App {
     private let runtimeCheckRequested: Bool
     private let performanceCheckRequested: Bool
     private let performanceReportURL: URL?
+    private let audioSmokeRequested: Bool
+    private let audioSmokeReportURL: URL?
 
     init() {
         runtimeCheckRequested = CommandLine.arguments.contains(Self.runtimeCheckArgument)
         performanceReportURL = Self.argumentURL(after: Self.performanceReportArgument)
         performanceCheckRequested = performanceReportURL != nil
             || CommandLine.arguments.contains(Self.performanceBudgetArgument)
+        audioSmokeReportURL = Self.argumentURL(after: Self.audioSmokeReportArgument)
+        audioSmokeRequested = audioSmokeReportURL != nil
+            || CommandLine.arguments.contains(Self.audioSmokeArgument)
         let requireBundledRuntime = CommandLine.arguments.contains(Self.requireBundledRuntimeArgument)
         let runtimeCheckOutputURL = Self.argumentURL(after: Self.runtimeCheckOutputArgument)
         let requestedPerformanceReportURL = performanceReportURL
+        let requestedAudioSmokeReportURL = audioSmokeReportURL
 
         do {
             evidenceRequest = try SnapshotController.evidenceRequest()
@@ -41,6 +49,24 @@ struct MosulApp: App {
                     exit(EXIT_SUCCESS)
                 } catch {
                     fputs("snapshot: \(error.localizedDescription)\n", stderr)
+                    exit(EXIT_FAILURE)
+                }
+            }
+        } else if audioSmokeRequested {
+            Task { @MainActor in
+                do {
+                    let report = try Self.audioSmokeReport(requireBundledRuntime: requireBundledRuntime)
+                    if let requestedAudioSmokeReportURL {
+                        try Self.writeReport(report, to: requestedAudioSmokeReportURL)
+                    }
+                    print(report)
+                    exit(EXIT_SUCCESS)
+                } catch {
+                    let report = Self.failureReport(check: "mosulgame_audio_smoke", error: error)
+                    if let requestedAudioSmokeReportURL {
+                        try? Self.writeReport(report, to: requestedAudioSmokeReportURL)
+                    }
+                    fputs("audio-smoke: \(error.localizedDescription)\n", stderr)
                     exit(EXIT_FAILURE)
                 }
             }
@@ -85,7 +111,7 @@ struct MosulApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if evidenceRequest == nil && !runtimeCheckRequested && !performanceCheckRequested {
+            if evidenceRequest == nil && !runtimeCheckRequested && !performanceCheckRequested && !audioSmokeRequested {
                 ContentView()
                     .frame(minWidth: 980, minHeight: 680)
             } else {
@@ -97,6 +123,9 @@ struct MosulApp: App {
     }
 
     private var commandModeTitle: String {
+        if audioSmokeRequested {
+            return "Audio smoke check"
+        }
         if performanceCheckRequested {
             return "Performance budget check"
         }
@@ -160,6 +189,55 @@ struct MosulApp: App {
             "map_levels=\(model.mapLevels.count)",
             "units=\(model.units.count)",
             "message=MosulGame runtime resources are ready."
+        ].joined(separator: "\n") + "\n"
+    }
+
+    @MainActor
+    private static func audioSmokeReport(requireBundledRuntime: Bool) throws -> String {
+        let model = MosulGameModel()
+
+        if let issue = model.releaseIssue {
+            throw RuntimeResourceCheckError.releaseIssue(issue)
+        }
+
+        if requireBundledRuntime && model.runtimeResources.source != .bundledApp {
+            throw RuntimeResourceCheckError.releaseIssue(
+                .bundledRuntimeRequired(actualSource: model.runtimeResources.source.description)
+            )
+        }
+
+        let defaults = UserDefaults(suiteName: "mosul.audio.smoke.\(UUID().uuidString)") ?? .standard
+        defaults.set(false, forKey: MosulAudioSettings.mutedDefaultsKey)
+        defaults.set(MosulAudioSettings.defaultMasterVolume, forKey: MosulAudioSettings.masterVolumeDefaultsKey)
+
+        let audio = MosulAudioController(userDefaults: defaults, launchArguments: CommandLine.arguments)
+        audio.configure(runtimeResources: model.runtimeResources)
+        audio.updateContext(model.audioContext)
+        let configuredStatus = audio.status.description
+
+        audio.setMuted(true)
+        let mutedAfterToggle = audio.isMuted
+        let mutedValue = audio.accessibilityValue
+
+        audio.setMuted(false)
+        audio.setMasterVolume(0.4)
+        audio.play(.battleStarted(side: model.playableSide ?? .usPatrol))
+        let mutedAfterUnmute = audio.isMuted
+        let unmutedValue = audio.accessibilityValue
+        let finalStatus = audio.status.description
+        audio.stopAll()
+
+        return [
+            "ok=true",
+            "check=mosulgame_audio_smoke",
+            "runtime_source=\(model.runtimeResources.source.description)",
+            "audio_status=\(configuredStatus)",
+            "audio_final_status=\(finalStatus)",
+            "audio_muted_after_toggle=\(mutedAfterToggle)",
+            "audio_muted_value=\(mutedValue)",
+            "audio_muted_after_unmute=\(mutedAfterUnmute)",
+            "audio_unmuted_value=\(unmutedValue)",
+            "audio_context=\(model.audioContext.reportSummary)"
         ].joined(separator: "\n") + "\n"
     }
 

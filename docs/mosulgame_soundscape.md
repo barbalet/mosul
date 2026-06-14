@@ -285,16 +285,16 @@ Tension should alter mix subtly:
 Estimate: 8 focused development cycles from no-audio baseline to a release-safe
 first sound pass.
 
-Current soundscape cycle: S3, mixer and loop engine.
-Completed soundscape cycles: S1-S2 on 2026-06-14.
+Current soundscape cycle: S5, tactical feedback pass.
+Completed soundscape cycles: S1-S4 on 2026-06-14.
 
 | Cycle | Status | Theme | Technical Work | Exit Criteria |
 | --- | --- | --- | --- | --- |
 | S1 | completed 2026-06-14 | Mute-first audio foundation | Added `MosulAudioController`, `MosulAudioSettings`, a header/overlay speaker toggle, persisted mute/master volume, `Command-Shift-M`, and `--disable-audio`. Playback remains silent/no-op until the mixer cycle adds a graph. | Main-window mute is always reachable, persists across relaunch, silences immediately, and smoke/evidence/performance/runtime-check launches can disable audio. |
 | S2 | completed 2026-06-14 | Runtime audio manifest | Added `modernerKrieg/assets/mosul/audio/`, `mosul_audio_manifest.json`, an audio credits document, and audio manifest/license/path/format validation in the runtime-resource script. | Missing audio files, unapproved licenses, absent attribution, unsafe paths, unsupported extensions, and invalid WAV sample properties fail validation before release packaging. |
-| S3 | next | Mixer and loop engine | Build the `AVAudioEngine` graph with master, ambience, tactical, radio, and UI mixers; load loops from manifest; add safe start/stop/ducking behavior. | A bundled app can start, mute, unmute, and quit without audio crashes, log spam, or noticeable CPU impact. |
-| S4 | pending | Structured audio events | Add `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, step, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | A scripted smoke path can verify expected audio events textually without requiring speakers. |
-| S5 | pending | Tactical feedback pass | Map UI and gameplay events to restrained one-shots: order confirmation, invalid command, tick resolution, contact reveal, route blocked, fire resolved, objective complete, risk warning. | A new player receives clearer feedback for movement, fire, watch/hold, contact, and risk while every cue has visual/text parity. |
+| S3 | completed 2026-06-14 | Mixer and loop engine | Built the `AVAudioEngine` graph with master, ambience, tactical, radio, and UI mixers; load loops from the manifest; added safe configure/start/stop, mute/unmute, volume, and ambience-ducking behavior. | The bundled app audio smoke can configure, mute, unmute, report context, and quit without requiring speaker output. |
+| S4 | completed 2026-06-14 | Structured audio events | Added `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, tick, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | Snapshot and accessibility smoke reports verify expected audio events textually without requiring speakers. |
+| S5 | next | Tactical feedback pass | Map UI and gameplay events to restrained one-shots: order confirmation, invalid command, tick resolution, contact reveal, route blocked, fire resolved, objective complete, risk warning. | A new player receives clearer feedback for movement, fire, watch/hold, contact, and risk while every cue has visual/text parity. |
 | S6 | pending | Ambient city and engines | Add low/high city beds, generator/engine layers, zoom/context mixing, and movement/transit accents. | The map feels alive at low volume, changes with zoom/tension, and never reveals hidden tactical information. |
 | S7 | pending | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
 | S8 | pending | Audio QA and release hardening | Add audio evidence report, accessibility checks, clean-machine bundle checks, size budget, credits review, and release documentation. | Release DMGs include validated audio assets and credits; muted mode, no-audio launch, and normal playback all pass QA. |
