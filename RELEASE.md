@@ -35,6 +35,14 @@ and executable named `MosulGame`. Public-facing copy and DMG volume names use
 - Accessibility/minimum-window evidence:
   `scripts/check_mosulgame_accessibility_ui.sh` captures the playable shell at
   `980x680` and verifies keyboard/VoiceOver guardrails.
+- Audio release evidence:
+  `python3 scripts/write_mosulgame_audio_report.py --output snapshots/evidence/mosul-audio-release.txt`
+  validates manifest counts, speech transcripts/captions, review metadata,
+  credits coverage, and the release audio byte budget.
+- App-bundle audio smoke:
+  `scripts/check_mosulgame_audio_smoke.sh` launches the built app, verifies
+  bundled audio asset/loop/cue/voice counts, mute/unmute, radio captions, and
+  representative cue playback without requiring speakers.
 - Local release-candidate app bundles:
   `scripts/build_mosulgame_release_candidate.sh` builds ad-hoc signed
   `arm64` and `x86_64` candidates under
@@ -102,6 +110,8 @@ Before manual DMG packaging, run the local release-candidate gates:
 
 ```bash
 scripts/check_mosulgame_accessibility_ui.sh
+python3 scripts/write_mosulgame_audio_report.py --output snapshots/evidence/mosul-audio-release.txt
+scripts/check_mosulgame_audio_smoke.sh
 scripts/build_mosulgame_release_candidate.sh
 ```
 
@@ -111,6 +121,12 @@ keeps the app bundle named `MosulGame.app`, writes architecture-specific
 folders under `dist/release-candidate/`, validates bundled runtime resources,
 ad-hoc signs by default, and records `lipo` results in
 `snapshots/evidence/mosul-release-candidate.txt`.
+
+The audio report and audio smoke write ignored evidence under
+`snapshots/evidence/`. The report checks manifest/license/transcript/caption
+metadata without launching the app; the smoke check verifies the bundled
+`AVAudioEngine` path, mute controls, radio captions, and event-driven cue
+loading from the built app bundle.
 
 The manual Apple Silicon and Intel sections below remain the underlying build,
 signing, and DMG packaging flow. Later release automation should package the

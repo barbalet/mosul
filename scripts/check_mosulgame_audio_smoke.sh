@@ -181,8 +181,10 @@ for expected in \
   '^audio_asset_count=' \
   '^audio_loop_count=' \
   '^audio_cue_count=' \
+  '^audio_voice_count=' \
   '^audio_muted_after_toggle=true$' \
   '^audio_muted_after_unmute=false$' \
+  '^audio_caption=.' \
   '^audio_probe_events=.*order_placed' \
   '^audio_probe_events=.*fire_resolved' \
   '^audio_probe_events=.*civilian_risk_changed' \
@@ -197,9 +199,10 @@ done
 asset_count="$(grep '^audio_asset_count=' "$REPORT_PATH" | sed 's/^audio_asset_count=//')"
 loop_count="$(grep '^audio_loop_count=' "$REPORT_PATH" | sed 's/^audio_loop_count=//')"
 cue_count="$(grep '^audio_cue_count=' "$REPORT_PATH" | sed 's/^audio_cue_count=//')"
+voice_count="$(grep '^audio_voice_count=' "$REPORT_PATH" | sed 's/^audio_voice_count=//')"
 
-if [[ "$asset_count" -le 0 || "$loop_count" -le 0 || "$cue_count" -le 0 ]]; then
-  echo "error: audio smoke expected positive asset, loop, and cue counts" >&2
+if [[ "$asset_count" -le 0 || "$loop_count" -le 0 || "$cue_count" -le 0 || "$voice_count" -le 0 ]]; then
+  echo "error: audio smoke expected positive asset, loop, cue, and voice counts" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi

@@ -63,12 +63,38 @@ def pulse(path: str, duration: float, base: float, gain: float) -> None:
     write_mono_wav(AUDIO_ROOT / path, duration, sample)
 
 
+def radio_voice(path: str, duration: float, pitches: list[float]) -> None:
+    def sample(time: float, position: float) -> float:
+        syllable = min(len(pitches) - 1, int(position * len(pitches)))
+        local = (position * len(pitches)) % 1.0
+        gate = envelope(local, attack=0.04, release=0.12)
+        carrier = tone(pitches[syllable], time) + 0.25 * tone(pitches[syllable] * 2.0, time)
+        radio_band = 0.65 * carrier + 0.25 * tone(1800, time, phase=syllable * 0.3)
+        return 0.105 * gate * envelope(position, attack=0.01, release=0.08) * radio_band
+
+    write_mono_wav(AUDIO_ROOT / path, duration, sample)
+
+
 def loop(path: str, duration: float, layers: list[tuple[float, float, float]]) -> None:
     def sample(time: float, position: float) -> float:
         value = 0.0
         for frequency, gain, phase in layers:
             value += gain * tone(frequency, time, phase)
         return value
+
+    write_mono_wav(AUDIO_ROOT / path, duration, sample)
+
+
+def murmur_loop(path: str, duration: float, base: float, gain: float) -> None:
+    def sample(time: float, position: float) -> float:
+        slow_gate = 0.62 + 0.24 * tone(0.7, time) + 0.14 * tone(1.1, time, phase=1.7)
+        cluster = (
+            0.45 * tone(base, time, phase=0.1)
+            + 0.35 * tone(base * 1.42, time, phase=0.8)
+            + 0.25 * tone(base * 1.93, time, phase=1.4)
+            + 0.18 * tone(base * 2.61, time, phase=2.0)
+        )
+        return gain * slow_gate * cluster
 
     write_mono_wav(AUDIO_ROOT / path, duration, sample)
 
@@ -84,6 +110,14 @@ def main() -> None:
     pulse("cues/tactical_fire.wav", 0.36, 82, 0.22)
     cue("cues/tactical_objective.wav", 0.52, [392, 523.25, 659.25], 0.13, drop=0.05)
     cue("cues/tactical_risk.wav", 0.46, [740, 554, 370], 0.14, drop=0.15)
+
+    radio_voice("voices/radio_move_set.wav", 0.68, [350, 390, 320])
+    radio_voice("voices/radio_contact_reported.wav", 0.92, [330, 390, 460, 370])
+    radio_voice("voices/radio_no_line_of_sight.wav", 1.08, [310, 285, 335, 260])
+    radio_voice("voices/radio_route_blocked.wav", 0.82, [300, 265, 245])
+    radio_voice("voices/radio_civilians_close.wav", 1.02, [420, 395, 350, 390])
+    radio_voice("voices/radio_task_complete.wav", 0.88, [360, 430, 500])
+    radio_voice("voices/radio_hold_position.wav", 0.76, [280, 330, 300])
 
     loop(
         "loops/ambient_city_low.wav",
@@ -105,6 +139,8 @@ def main() -> None:
         3.0,
         [(38, 0.032, 0.3), (76, 0.018, 1.1), (114, 0.010, 1.9), (152, 0.007, 2.7)],
     )
+    murmur_loop("loops/civilian_murmur_low.wav", 3.0, 145, 0.026)
+    murmur_loop("loops/civilian_murmur_high.wav", 3.0, 175, 0.022)
 
 
 if __name__ == "__main__":

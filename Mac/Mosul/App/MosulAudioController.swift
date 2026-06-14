@@ -34,6 +34,8 @@ struct MosulAudioAsset: Decodable, Equatable {
     let sourceURL: String
     let locale: String
     let transcript: String
+    let caption: String
+    let reviewStatus: String
     let durationSeconds: Double?
     let loopPointsSeconds: [Double]?
     let lufs: Double?
@@ -49,6 +51,8 @@ struct MosulAudioAsset: Decodable, Equatable {
         case sourceURL = "source_url"
         case locale
         case transcript
+        case caption
+        case reviewStatus = "review_status"
         case durationSeconds = "duration_seconds"
         case loopPointsSeconds = "loop_points_seconds"
         case lufs
@@ -66,6 +70,8 @@ struct MosulAudioAsset: Decodable, Equatable {
         sourceURL = try container.decodeIfPresent(String.self, forKey: .sourceURL) ?? ""
         locale = try container.decodeIfPresent(String.self, forKey: .locale) ?? ""
         transcript = try container.decodeIfPresent(String.self, forKey: .transcript) ?? ""
+        caption = try container.decodeIfPresent(String.self, forKey: .caption) ?? ""
+        reviewStatus = try container.decodeIfPresent(String.self, forKey: .reviewStatus) ?? ""
         durationSeconds = try container.decodeIfPresent(Double.self, forKey: .durationSeconds)
         loopPointsSeconds = try container.decodeIfPresent([Double].self, forKey: .loopPointsSeconds)
         lufs = try container.decodeIfPresent(Double.self, forKey: .lufs)
@@ -317,6 +323,7 @@ final class MosulAudioController: ObservableObject {
     @Published private(set) var settings: MosulAudioSettings
     @Published private(set) var status: MosulAudioStatus = .unconfigured
     @Published private(set) var context = MosulAudioContext.empty
+    @Published private(set) var caption = ""
 
     private enum CueID {
         static let orderArm = "ui.order.arm"
@@ -329,6 +336,16 @@ final class MosulAudioController: ObservableObject {
         static let fire = "tactical.fire"
         static let objective = "tactical.objective"
         static let risk = "tactical.risk"
+    }
+
+    private enum VoiceID {
+        static let moveSet = "radio.move_set"
+        static let contactReported = "radio.contact_reported"
+        static let noLineOfSight = "radio.no_line_of_sight"
+        static let routeBlocked = "radio.route_blocked"
+        static let civiliansClose = "radio.civilians_close"
+        static let taskComplete = "radio.task_complete"
+        static let holdPosition = "radio.hold_position"
     }
 
     private let userDefaults: UserDefaults
@@ -346,6 +363,7 @@ final class MosulAudioController: ObservableObject {
     private var manifestAssetCount = 0
     private var ambienceDucked = false
     private var duckRestoreWorkItem: DispatchWorkItem?
+    private var captionClearWorkItem: DispatchWorkItem?
     private var lastCuePlayback: [String: TimeInterval] = [:]
 
     init(
@@ -393,6 +411,10 @@ final class MosulAudioController: ObservableObject {
 
     var loadedCueCount: Int {
         oneShotPlayers.count
+    }
+
+    var loadedVoiceCount: Int {
+        oneShotAssets.values.filter { $0.kind == .voice }.count
     }
 
     var accessibilityValue: String {
@@ -495,6 +517,7 @@ final class MosulAudioController: ObservableObject {
         case .contactRevealed:
             duckAmbienceBriefly()
             playCue(CueID.contact, cooldown: 0.6)
+            playCue(VoiceID.contactReported, cooldown: 5.0)
         case .fireResolved(_, _, let outcome):
             duckAmbienceBriefly()
             switch outcome {
@@ -502,19 +525,27 @@ final class MosulAudioController: ObservableObject {
                 playCue(CueID.fire, cooldown: 0.5)
             case .blockedLineOfSight:
                 playCue(CueID.routeBlocked, cooldown: 0.35)
+                playCue(VoiceID.noLineOfSight, cooldown: 4.0)
             case .failed, .noShots:
                 playCue(CueID.invalid, cooldown: 0.2)
             }
-        case .lineOfSightBlocked, .routeBlocked:
+        case .lineOfSightBlocked:
             duckAmbienceBriefly()
             playCue(CueID.routeBlocked, cooldown: 0.35)
+            playCue(VoiceID.noLineOfSight, cooldown: 4.0)
+        case .routeBlocked:
+            duckAmbienceBriefly()
+            playCue(CueID.routeBlocked, cooldown: 0.35)
+            playCue(VoiceID.routeBlocked, cooldown: 4.0)
         case .invalidCommand:
             playCue(CueID.invalid, cooldown: 0.18)
         case .civilianRiskChanged:
             duckAmbienceBriefly()
             playCue(CueID.risk, cooldown: 0.8)
+            playCue(VoiceID.civiliansClose, cooldown: 5.0)
         case .objectiveResolved, .afterAction:
             playCue(CueID.objective, cooldown: 0.8)
+            playCue(VoiceID.taskComplete, cooldown: 5.0)
         }
     }
 
@@ -523,9 +554,13 @@ final class MosulAudioController: ObservableObject {
         case .move, .route, .investigate:
             playCue(CueID.orderConfirm, cooldown: 0.1)
             playCue(CueID.movement, cooldown: 0.25)
+            playCue(VoiceID.moveSet, cooldown: 3.0)
         case .fire:
             playCue(CueID.orderArm, cooldown: 0.1)
-        case .watch, .hold, .rally, .search, .breach, .step, .opponentTick, .reset, .unknown:
+        case .watch, .hold:
+            playCue(CueID.orderConfirm, cooldown: 0.1)
+            playCue(VoiceID.holdPosition, cooldown: 3.0)
+        case .rally, .search, .breach, .step, .opponentTick, .reset, .unknown:
             playCue(CueID.orderConfirm, cooldown: 0.1)
         }
     }
@@ -550,6 +585,7 @@ final class MosulAudioController: ObservableObject {
             player.stop()
             player.scheduleFile(file, at: nil)
             player.play()
+            updateCaption(for: assetID)
             refreshStatus()
         } catch {
             status = .engineFailed(error.localizedDescription)
@@ -565,6 +601,9 @@ final class MosulAudioController: ObservableObject {
         for player in oneShotPlayers.values {
             player.stop()
         }
+        captionClearWorkItem?.cancel()
+        captionClearWorkItem = nil
+        caption = ""
         if engine.isRunning {
             engine.pause()
         }
@@ -628,6 +667,7 @@ final class MosulAudioController: ObservableObject {
         oneShotFiles.removeAll()
         oneShotAssets.removeAll()
         lastCuePlayback.removeAll()
+        caption = ""
     }
 
     private func mixer(for bus: MosulAudioBus) -> AVAudioMixerNode {
@@ -695,7 +735,7 @@ final class MosulAudioController: ObservableObject {
         let ambienceDuck: Float = ambienceDucked ? 0.42 : 1.0
         busMixers[.ambience]?.outputVolume = ambienceDuck * (1.0 - 0.18 * tension)
         busMixers[.tactical]?.outputVolume = min(1.0, 0.9 + 0.1 * tension)
-        busMixers[.radio]?.outputVolume = 0.82
+        busMixers[.radio]?.outputVolume = 0.78 + min(0.10, 0.10 * tension)
         busMixers[.ui]?.outputVolume = 0.82
         applyLoopVolumes()
     }
@@ -713,7 +753,9 @@ final class MosulAudioController: ObservableObject {
 
             let tags = Set(asset.tags)
             var volume = 0.16
-            if tags.contains("low_tension") {
+            if tags.contains("murmur") {
+                volume = (0.07 + 0.05 * (1.0 - zoomFocus)) * (1.0 - 0.42 * tension)
+            } else if tags.contains("low_tension") {
                 volume = 0.34 * (1.0 - 0.46 * tension) * (1.0 - 0.18 * zoomFocus)
             } else if tags.contains("high_tension") {
                 volume = 0.04 + 0.26 * tension
@@ -725,6 +767,24 @@ final class MosulAudioController: ObservableObject {
 
             player.volume = Float(min(0.44, max(0.02, volume)))
         }
+    }
+
+    private func updateCaption(for assetID: String) {
+        guard let asset = oneShotAssets[assetID], asset.kind == .voice else { return }
+
+        let nextCaption = asset.caption.isEmpty ? asset.transcript : asset.caption
+        guard !nextCaption.isEmpty else { return }
+
+        caption = nextCaption
+        captionClearWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                self?.caption = ""
+            }
+        }
+        captionClearWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2, execute: workItem)
     }
 
     private func setAmbienceDucked(_ ducked: Bool) {

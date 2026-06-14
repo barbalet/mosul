@@ -240,6 +240,7 @@ struct MosulApp: App {
         }
         let mutedAfterUnmute = audio.isMuted
         let unmutedValue = audio.accessibilityValue
+        let captionAfterProbe = audio.caption
         let finalStatus = audio.status.description
         audio.stopAll()
 
@@ -252,10 +253,12 @@ struct MosulApp: App {
             "audio_asset_count=\(audio.loadedAssetCount)",
             "audio_loop_count=\(audio.loadedLoopCount)",
             "audio_cue_count=\(audio.loadedCueCount)",
+            "audio_voice_count=\(audio.loadedVoiceCount)",
             "audio_muted_after_toggle=\(mutedAfterToggle)",
             "audio_muted_value=\(mutedValue)",
             "audio_muted_after_unmute=\(mutedAfterUnmute)",
             "audio_unmuted_value=\(unmutedValue)",
+            "audio_caption=\(captionAfterProbe)",
             "audio_probe_events=\(probeEvents.map(\.reportName).joined(separator: ","))",
             "audio_context=\(model.audioContext.reportSummary)"
         ].joined(separator: "\n") + "\n"

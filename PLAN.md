@@ -128,8 +128,8 @@ The first sound task is deliberately mute-first: MosulGame must expose an
 always-reachable main-window speaker control before ambience, radio, speech, or
 weapon layers become release defaults.
 
-Current soundscape cycle: S7, speech and radio.
-Completed soundscape cycles: S1-S6 on 2026-06-14.
+Current soundscape cycle: complete; all planned first-pass soundscape cycles are done.
+Completed soundscape cycles: S1-S8 on 2026-06-14.
 
 ### Soundscape Definition
 
@@ -168,8 +168,8 @@ The first public soundscape is done when:
 | S4 | completed 2026-06-14 | Structured audio events | Added `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, tick, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | Snapshot and accessibility smoke reports verify expected audio events textually without requiring speakers. |
 | S5 | completed 2026-06-14 | Tactical feedback pass | Mapped structured gameplay events to restrained generated one-shots for order arm/confirm, invalid command, tick, movement, contact reveal, route/LOS blocked, fire resolved, objective, and civilian-risk warning. | Audio smoke probes representative event families, snapshot evidence keeps visual/text parity through player notices and reports, and invalid/blocked actions now produce structured feedback events. |
 | S6 | completed 2026-06-14 | Ambient city and engines | Added original low/high city, generator, and distant-engine loops; connected zoom, tension, visible movement, and traffic movement into bus and loop mixing; added movement/transit accents. | The bundled app loads 14 manifest assets, starts 4 low-volume ambience loops in playable context, changes mix from zoom/tension/movement context, and avoids hidden hostile positional audio. |
-| S7 | next | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
-| S8 | pending | Audio QA and release hardening | Add audio evidence report, accessibility checks, clean-machine bundle checks, size budget, credits review, and release documentation. | Release DMGs include validated audio assets and credits; muted mode, no-audio launch, and normal playback all pass QA. |
+| S7 | completed 2026-06-14 | Speech and radio | Added original non-lexical civilian murmur beds and sparse U.S. radio cue assets with transcripts, visible captions, cooldowns, review metadata, and credits. | Speech/radio improves place and command clarity without fake Arabic, unreviewed language, repetition spam, or sound-only gameplay requirements. |
+| S8 | completed 2026-06-14 | Audio QA and release hardening | Added audio release evidence reporting, stricter manifest validation for transcripts/captions/review status/credits/size budget, release checklist entries, and app-bundle audio smoke assertions. | Source and built-app audio reports pass; muted mode, disabled-audio launch, bundled-runtime playback, radio captions, and accessibility evidence are covered by repeatable checks. |
 
 ## Current Public Baseline
 
@@ -189,9 +189,10 @@ The first public soundscape is done when:
 - `MosulGame.xcodeproj` now copies a curated runtime payload into `Contents/Resources/mosul-runtime/modernerKrieg` during app builds.
 - MosulGame resolves bundled runtime resources before falling back to the source checkout, and has a `--check-runtime-resources` app argument for LaunchServices-based bundle checks.
 - MosulGame has a mute-first soundscape foundation with an `AVAudioEngine` master/ambience/tactical/radio/UI mixer graph, persisted mute/volume state, a command-key mute shortcut, and a `--disable-audio` deterministic launch path.
-- `scripts/check_mosulgame_audio_smoke.sh` verifies the bundled app audio controller can configure, mute, unmute, report context, and quit; snapshot/accessibility evidence now records structured audio events.
-- The soundscape runtime now includes 10 original generated tactical/UI cue WAVs and 4 original low-volume ambience loop WAVs, all listed in the bundled audio manifest and credits.
-- Gameplay events now trigger restrained cue playback for orders, invalid commands, route/LOS blocks, ticks, movement, contacts, fire, objectives, and civilian risk; ambience mix responds to zoom, tension, visible unit movement, and traffic movement without revealing hidden enemies.
+- `scripts/check_mosulgame_audio_smoke.sh` verifies the bundled app audio controller can configure, mute, unmute, report context, play representative cues, expose radio captions, and quit; snapshot/accessibility evidence now records structured audio events.
+- The soundscape runtime now includes 23 original generated/procedural WAV assets: 10 tactical/UI one-shots, 6 ambience/murmur loops, and 7 sparse radio voice cues, all listed in the bundled audio manifest and credits.
+- Gameplay events now trigger restrained cue playback for orders, invalid commands, route/LOS blocks, ticks, movement, contacts, fire, objectives, civilian risk, and sparse radio acknowledgements; ambience mix responds to zoom, tension, visible unit movement, and traffic movement without revealing hidden enemies.
+- `scripts/write_mosulgame_audio_report.py` produces release evidence for manifest counts, speech transcripts/captions, review metadata, credits coverage, missing files, and the configured audio byte budget from either source assets or a built app bundle.
 - MosulGame can require bundled runtime resources with `--require-bundled-runtime` and write a `--runtime-check-output` stamp for deterministic launch-smoke verification.
 - The Mosul C bridge now treats its creation argument as a runtime asset root and validates required scenario/map/marker runtime files before loading the game.
 - `scripts/check_mosulgame_runtime_resources.py --app <MosulGame.app>` validates the built MosulGame app bundle's runtime payload, and the Mac smoke script runs that check in CI for both the built app and a copied app outside the checkout.

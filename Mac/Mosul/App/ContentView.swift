@@ -299,6 +299,16 @@ struct ContentView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+
+            if !audio.caption.isEmpty {
+                Label(audio.caption, systemImage: "radio.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .accessibilityLabel("Radio")
+                    .accessibilityValue(audio.caption)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Command status")

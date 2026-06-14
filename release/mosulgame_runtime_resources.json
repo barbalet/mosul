@@ -95,7 +95,13 @@
     "allowed_channels": [
       1,
       2
-    ]
+    ],
+    "allowed_review_statuses": [
+      "procedural_non_lexical_no_language",
+      "reviewed_original_transcript",
+      "reviewed_original_non_speech"
+    ],
+    "size_budget_bytes": 3000000
   },
   "excluded_from_standalone_bundle": [
     "modernerKrieg/assets/mosul/source",

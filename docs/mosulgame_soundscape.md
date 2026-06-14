@@ -162,6 +162,8 @@ Draft schema:
       "source_url": "",
       "locale": "",
       "transcript": "",
+      "caption": "",
+      "review_status": "reviewed_original_non_speech",
       "duration_seconds": 42.0,
       "loop_points_seconds": [0.0, 42.0],
       "lufs": -24.0,
@@ -181,8 +183,10 @@ The runtime resource checker should validate:
 - sample rate is 44.1 kHz or 48 kHz
 - files are mono or stereo PCM WAV, AIFF, CAF, or AAC/M4A
 - loops have duration and loop-point metadata
-- speech assets have locale and transcript fields where intelligible
+- speech, murmur, radio, and voice assets have locale, transcript/caption
+  fields where relevant, and explicit review status
 - every non-CC0 asset appears in an audio credits document
+- the total runtime audio payload stays within the release byte budget
 
 ## Soundscape Layers
 
@@ -232,6 +236,12 @@ trying to force a public corpus into a natural Mosul street bed. Open corpora
 can help prototype texture, but the release asset should be reviewed and
 credited.
 
+Current release-safe placeholder: the app ships original procedural,
+non-lexical civilian murmur loops with locale `zxx`. They contain no Arabic
+words, simulated phrases, slogans, prayers, or translatable content. This keeps
+the city bed human and avoids fake or unreviewed Iraqi speech until a native
+speaker-reviewed recording set exists.
+
 ### U.S. Radio Voice
 
 Radio should be sparse, procedural, and player-helpful:
@@ -247,6 +257,10 @@ Radio should be sparse, procedural, and player-helpful:
 Radio should have cooldowns. The same line should not repeat every tick. Any
 important radio line should be mirrored in the existing player notice area or a
 small caption line so muted play remains complete.
+
+Current implementation uses short original procedural radio-tone voice
+surrogates for these command lines. Each shipped radio asset has an English
+transcript, visible caption, review status, and release-manifest metadata.
 
 ### Weapons And Contact
 
@@ -285,8 +299,8 @@ Tension should alter mix subtly:
 Estimate: 8 focused development cycles from no-audio baseline to a release-safe
 first sound pass.
 
-Current soundscape cycle: S7, speech and radio.
-Completed soundscape cycles: S1-S6 on 2026-06-14.
+Current soundscape cycle: complete; all planned first-pass soundscape cycles are done.
+Completed soundscape cycles: S1-S8 on 2026-06-14.
 
 | Cycle | Status | Theme | Technical Work | Exit Criteria |
 | --- | --- | --- | --- | --- |
@@ -296,8 +310,8 @@ Completed soundscape cycles: S1-S6 on 2026-06-14.
 | S4 | completed 2026-06-14 | Structured audio events | Added `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, tick, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | Snapshot and accessibility smoke reports verify expected audio events textually without requiring speakers. |
 | S5 | completed 2026-06-14 | Tactical feedback pass | Mapped structured gameplay events to restrained generated one-shots for order arm/confirm, invalid command, tick, movement, contact reveal, route/LOS blocked, fire resolved, objective, and civilian-risk warning. | Audio smoke probes representative event families, snapshot evidence keeps visual/text parity through player notices and reports, and invalid/blocked actions now produce structured feedback events. |
 | S6 | completed 2026-06-14 | Ambient city and engines | Added original low/high city, generator, and distant-engine loops; connected zoom, tension, visible movement, and traffic movement into bus and loop mixing; added movement/transit accents. | The bundled app loads 14 manifest assets, starts 4 low-volume ambience loops in playable context, changes mix from zoom/tension/movement context, and avoids hidden hostile positional audio. |
-| S7 | next | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
-| S8 | pending | Audio QA and release hardening | Add audio evidence report, accessibility checks, clean-machine bundle checks, size budget, credits review, and release documentation. | Release DMGs include validated audio assets and credits; muted mode, no-audio launch, and normal playback all pass QA. |
+| S7 | completed 2026-06-14 | Speech and radio | Added original non-lexical civilian murmur beds and sparse U.S. radio cue assets with transcripts, visible captions, cooldowns, review metadata, and credits. | Speech/radio improves place and command clarity without fake Arabic, unreviewed language, repetition spam, or sound-only gameplay requirements. |
+| S8 | completed 2026-06-14 | Audio QA and release hardening | Added audio release evidence reporting, stricter manifest validation for transcripts/captions/review status/credits/size budget, release checklist entries, and app-bundle audio smoke assertions. | Source and built-app audio reports pass; muted mode, disabled-audio launch, bundled-runtime playback, radio captions, and accessibility evidence are covered by repeatable checks. |
 
 ## Open-Source Audio Policy
 
@@ -325,6 +339,11 @@ Recommended release preference:
   failure.
 - Audio manifest and credits are bundled under `Contents/Resources`.
 - Release resource checker validates every referenced audio file.
+- `scripts/write_mosulgame_audio_report.py` validates audio counts,
+  transcripts, captions, review metadata, credits coverage, missing files, and
+  release byte budget from source assets or a built app bundle.
+- `scripts/check_mosulgame_audio_smoke.sh` verifies bundled playback setup,
+  mute/unmute, loop/cue/voice counts, and a visible radio caption in app mode.
 - No sound cue reveals information hidden by fog of war.
 - Every gameplay-critical cue has a visual/text equivalent.
 - Speech assets have transcripts, locale notes, source URLs, and review status.

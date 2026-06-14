@@ -186,6 +186,8 @@ def collect_audio_resources(
     manifest_path = repo_path(manifest_relative)
     if not manifest_path.exists():
         return
+    credits_path = repo_path(credits_relative)
+    credits_text = credits_path.read_text(encoding="utf-8") if credits_path.exists() else ""
 
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -207,7 +209,14 @@ def collect_audio_resources(
     allowed_extensions = set(str(value).lower() for value in audio.get("allowed_extensions", []))
     allowed_sample_rates = set(int(value) for value in audio.get("allowed_sample_rates", []))
     allowed_channels = set(int(value) for value in audio.get("allowed_channels", []))
+    allowed_review_statuses = set(str(value) for value in audio.get("allowed_review_statuses", []))
+    size_budget = audio.get("size_budget_bytes")
+    if size_budget is not None and not isinstance(size_budget, int):
+        errors.append("audio_runtime.size_budget_bytes must be an integer")
+        size_budget = None
+    total_audio_bytes = 0
     asset_ids: set[str] = set()
+    speech_tags = {"speech", "murmur", "radio", "voice"}
 
     for index, entry in enumerate(assets):
         if not isinstance(entry, dict):
@@ -239,6 +248,8 @@ def collect_audio_resources(
 
         add_required(required, asset_relative)
         asset_path = repo_path(asset_relative)
+        if asset_path.exists():
+            total_audio_bytes += asset_path.stat().st_size
 
         bus = entry.get("bus")
         if bus not in allowed_buses:
@@ -258,6 +269,15 @@ def collect_audio_resources(
             errors.append(f"{prefix} requires attribution and source_url for license {license_id}")
         if license_id in {"Original", "Commissioned"} and not attribution:
             errors.append(f"{prefix} requires attribution for {license_id} audio")
+        if license_id != "CC0-1.0" and attribution and attribution not in credits_text:
+            errors.append(f"{prefix} attribution is missing from audio credits")
+
+        tags_value = entry.get("tags", [])
+        if not isinstance(tags_value, list) or not all(isinstance(value, str) for value in tags_value):
+            errors.append(f"{prefix} tags must be an array of strings")
+            tags: set[str] = set()
+        else:
+            tags = set(tags_value)
 
         if kind == "loop":
             loop_points = entry.get("loop_points_seconds")
@@ -272,8 +292,24 @@ def collect_audio_resources(
         if kind == "voice":
             locale = str(entry.get("locale", "")).strip()
             transcript = str(entry.get("transcript", "")).strip()
+            caption = str(entry.get("caption", "")).strip()
             if not locale or not transcript:
                 errors.append(f"{prefix} voice audio requires locale and transcript")
+            if not caption:
+                errors.append(f"{prefix} voice audio requires caption")
+
+        if kind == "voice" or tags.intersection(speech_tags):
+            locale = str(entry.get("locale", "")).strip()
+            transcript = str(entry.get("transcript", "")).strip()
+            review_status = str(entry.get("review_status", "")).strip()
+            if not locale or not transcript:
+                errors.append(f"{prefix} speech-tagged audio requires locale and transcript")
+            if not review_status:
+                errors.append(f"{prefix} speech-tagged audio requires review_status")
+            elif allowed_review_statuses and review_status not in allowed_review_statuses:
+                errors.append(
+                    f"{prefix} review_status must be one of {sorted(allowed_review_statuses)}"
+                )
 
         for numeric_key in ("duration_seconds", "lufs"):
             if numeric_key in entry and not isinstance(entry[numeric_key], (int, float)):
@@ -281,6 +317,11 @@ def collect_audio_resources(
 
         if asset_path.exists() and extension == ".wav":
             validate_wave_asset(prefix, asset_path, allowed_sample_rates, allowed_channels, errors)
+
+    if size_budget is not None and total_audio_bytes > size_budget:
+        errors.append(
+            f"audio assets exceed size budget: {total_audio_bytes} bytes > {size_budget} bytes"
+        )
 
 
 def validate_wave_asset(
