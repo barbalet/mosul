@@ -175,7 +175,7 @@ struct MosulApp: App {
             throw RuntimeResourceCheckError.releaseIssue(.missingRuntimeFile(path: baseLevel.imagePath))
         }
 
-        let spriteManifest = MosulSpriteManifest.shared(for: model.runtimeResources)
+        let spriteManifest = SharedSpriteManifest.shared(for: model.runtimeResources)
         guard model.units.contains(where: { spriteManifest.unitSprite(for: $0) != nil }) else {
             throw RuntimeResourceCheckError.releaseIssue(.noUnitSprite)
         }
@@ -292,16 +292,16 @@ struct MosulApp: App {
         }
 
         let spriteStart = DispatchTime.now().uptimeNanoseconds
-        let spriteManifest = MosulSpriteManifest.shared(for: model.runtimeResources)
+        let spriteManifest = SharedSpriteManifest.shared(for: model.runtimeResources)
         let unitSpriteCount = model.units.compactMap { spriteManifest.unitSprite(for: $0) }.count
         let trafficSpriteCount = model.trafficVehicles.compactMap { spriteManifest.trafficVehicleSprite(for: $0) }.count
         let spriteResolveMS = milliseconds(from: spriteStart)
 
         let mapStats = mapPNGStats(for: model)
-        MosulImageCache.shared.reset()
+        SharedImageCache.shared.reset()
 
         let renderStart = DispatchTime.now().uptimeNanoseconds
-        let content = TacticalMapView(model: model, scrollable: false)
+        let content = SharedTacticalMapView(model: model, scrollable: false)
             .frame(width: 1440, height: 900)
         let renderer = ImageRenderer(content: content)
         renderer.proposedSize = ProposedViewSize(width: 1440, height: 900)
@@ -311,7 +311,7 @@ struct MosulApp: App {
         }
         let firstRenderMS = milliseconds(from: renderStart)
 
-        let cacheStats = MosulImageCache.shared.stats()
+        let cacheStats = SharedImageCache.shared.stats()
         let residentMB = megabytes(residentMemoryBytes())
         let totalProbeMS = milliseconds(from: totalStart)
         let failedBudgets = budget.failedBudgets(

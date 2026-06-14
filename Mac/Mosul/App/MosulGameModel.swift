@@ -296,13 +296,22 @@ struct MosulRuntimeResources {
     private static let defaultScenarioPath = "game/mosul/scenarios/market_commercial_streets_2003.mkscenario"
     private static let mapManifestPath = "assets/mosul/manifests/market_commercial_streets_2003.mapmanifest"
     private static let markerManifestPath = "assets/mosul/manifests/mosul_2003_markers.markermanifest"
-    private static let spriteRuntimeManifestPath = "assets/mosul/runtime/sprites/manifest.json"
+    private static let defaultSpriteRuntimeManifestPath = "assets/shared/runtime/sprites/manifest.json"
+    private static let defaultSpriteRuntimeOutputRoot = "assets/shared/runtime/sprites/rendered"
 
     let runtimeAssetRootURL: URL
     let source: Source
 
     var runtimeAssetRoot: String {
         runtimeAssetRootURL.path
+    }
+
+    var spriteRuntimeManifestPath: String {
+        Self.defaultSpriteRuntimeManifestPath
+    }
+
+    var spriteRuntimeOutputRoot: String {
+        Self.defaultSpriteRuntimeOutputRoot
     }
 
     static func resolve(
@@ -355,12 +364,22 @@ struct MosulRuntimeResources {
             defaultScenarioPath,
             mapManifestPath,
             markerManifestPath,
-            spriteRuntimeManifestPath
+            defaultSpriteRuntimeManifestPath
         ].allSatisfy { relativePath in
             fileManager.fileExists(atPath: root.appendingPathComponent(relativePath).path)
         }
     }
 }
+
+typealias SharedGameModel = MosulGameModel
+typealias SharedRuntimeResources = MosulRuntimeResources
+typealias SharedUnit = MosulUnit
+typealias SharedTrafficVehicle = MosulTrafficVehicle
+typealias SharedObjective = MosulObjective
+typealias SharedCivilian = MosulCivilian
+typealias SharedContact = MosulContact
+typealias SharedInteraction = MosulInteraction
+typealias SharedMapLevel = MosulMapLevel
 
 struct MosulReleaseIssue {
     let title: String

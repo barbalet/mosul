@@ -10,10 +10,10 @@
 		B10000000000000000000001 /* MosulApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* MosulApp.swift */; };
 		B10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* ContentView.swift */; };
 		B10000000000000000000003 /* MosulGameModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* MosulGameModel.swift */; };
-		B10000000000000000000004 /* TacticalMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* TacticalMapView.swift */; };
+		B10000000000000000000004 /* SharedTacticalMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* SharedTacticalMapView.swift */; };
 		B10000000000000000000013 /* MosulVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000016 /* MosulVersion.swift */; };
 		B10000000000000000000014 /* SnapshotController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000017 /* SnapshotController.swift */; };
-		B10000000000000000000015 /* MosulSpriteManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000018 /* MosulSpriteManifest.swift */; };
+		B10000000000000000000015 /* SharedSpriteManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000018 /* SharedSpriteManifest.swift */; };
 		B10000000000000000000016 /* MosulAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000019 /* MosulAudioController.swift */; };
 		B10000000000000000000017 /* MosulAudioTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000020 /* MosulAudioTypes.swift */; };
 		B10000000000000000000005 /* MosulEngineBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* MosulEngineBridge.c */; };
@@ -30,10 +30,10 @@
 		B20000000000000000000001 /* MosulApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulApp.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/ContentView.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000003 /* MosulGameModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulGameModel.swift; sourceTree = SOURCE_ROOT; };
-		B20000000000000000000004 /* TacticalMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/TacticalMapView.swift; sourceTree = SOURCE_ROOT; };
+		B20000000000000000000004 /* SharedTacticalMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = modernerKrieg/Swift/SharedTacticalMapView.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000016 /* MosulVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulVersion.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000017 /* SnapshotController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/SnapshotController.swift; sourceTree = SOURCE_ROOT; };
-		B20000000000000000000018 /* MosulSpriteManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulSpriteManifest.swift; sourceTree = SOURCE_ROOT; };
+		B20000000000000000000018 /* SharedSpriteManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = modernerKrieg/Swift/SharedSpriteManifest.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000019 /* MosulAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulAudioController.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000020 /* MosulAudioTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/Mosul/App/MosulAudioTypes.swift; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000005 /* MosulEngineBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Mac/Mosul/Bridge/MosulEngineBridge.c; sourceTree = SOURCE_ROOT; };
@@ -79,8 +79,8 @@
 					B20000000000000000000003 /* MosulGameModel.swift */,
 				B20000000000000000000020 /* MosulAudioTypes.swift */,
 				B20000000000000000000019 /* MosulAudioController.swift */,
-				B20000000000000000000004 /* TacticalMapView.swift */,
-				B20000000000000000000018 /* MosulSpriteManifest.swift */,
+				B20000000000000000000004 /* SharedTacticalMapView.swift */,
+				B20000000000000000000018 /* SharedSpriteManifest.swift */,
 				B20000000000000000000017 /* SnapshotController.swift */,
 				B20000000000000000000005 /* MosulEngineBridge.c */,
 				B20000000000000000000006 /* MosulEngineBridge.h */,
@@ -213,8 +213,8 @@
 				B10000000000000000000003 /* MosulGameModel.swift in Sources */,
 				B10000000000000000000017 /* MosulAudioTypes.swift in Sources */,
 				B10000000000000000000016 /* MosulAudioController.swift in Sources */,
-				B10000000000000000000004 /* TacticalMapView.swift in Sources */,
-				B10000000000000000000015 /* MosulSpriteManifest.swift in Sources */,
+				B10000000000000000000004 /* SharedTacticalMapView.swift in Sources */,
+				B10000000000000000000015 /* SharedSpriteManifest.swift in Sources */,
 				B10000000000000000000014 /* SnapshotController.swift in Sources */,
 				B10000000000000000000005 /* MosulEngineBridge.c in Sources */,
 				B10000000000000000000006 /* mk_core.c in Sources */,

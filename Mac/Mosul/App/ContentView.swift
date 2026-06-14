@@ -112,7 +112,7 @@ struct ContentView: View {
 
                 if compactLayout {
                     VStack(spacing: 0) {
-                        TacticalMapView(model: model)
+                        SharedTacticalMapView(model: model)
                             .padding(10)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .accessibilitySortPriority(2)
@@ -126,7 +126,7 @@ struct ContentView: View {
                     }
                 } else {
                     HStack(spacing: 0) {
-                        TacticalMapView(model: model)
+                        SharedTacticalMapView(model: model)
                             .padding(12)
                             .accessibilitySortPriority(2)
 

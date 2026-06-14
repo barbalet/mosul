@@ -290,7 +290,7 @@ struct AIBattleContentView: View {
             header
             Divider()
             HStack(spacing: 0) {
-                TacticalMapView(model: model)
+                SharedTacticalMapView(model: model)
                     .padding(12)
                 Divider()
                 inspector
@@ -1208,7 +1208,7 @@ private struct AIBattleMovieFrameView: View {
             header
             Divider()
             HStack(spacing: 0) {
-                TacticalMapView(model: model)
+                SharedTacticalMapView(model: model)
                     .padding(12)
 
                 Divider()
@@ -1401,7 +1401,7 @@ private struct AIBattleEvidenceView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            TacticalMapView(model: model)
+            SharedTacticalMapView(model: model)
                 .padding(14)
 
             Divider()

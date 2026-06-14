@@ -22,7 +22,8 @@
     "Mac/Mosul/App/MosulVersion.swift",
     "Mac/Mosul/App/MosulAudioController.swift",
     "Mac/Mosul/App/MosulGameModel.swift",
-    "Mac/Mosul/App/TacticalMapView.swift",
+    "modernerKrieg/Swift/SharedTacticalMapView.swift",
+    "modernerKrieg/Swift/SharedSpriteManifest.swift",
     "Mac/Mosul/Bridge/MosulEngineBridge.c",
     "Mac/Mosul/Bridge/MosulEngineBridge.h",
     "scripts/copy_mosulgame_runtime_resources.py",
@@ -30,7 +31,7 @@
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_building_levels.json",
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_topology.json",
     "modernerKrieg/assets/mosul/manifests/mosul_2003_markers.markermanifest",
-    "modernerKrieg/assets/mosul/manifests/mosul_2003_sprites.spritemanifest",
+    "modernerKrieg/assets/shared/manifests/shared_tactical_sprites.spritemanifest",
     "modernerKrieg/assets/mosul/audio/mosul_audio_manifest.json",
     "modernerKrieg/assets/mosul/audio/CREDITS.md",
     "modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario"
@@ -38,7 +39,7 @@
   "required_directories": [
     "modernerKrieg/assets/mosul/audio",
     "modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003",
-    "modernerKrieg/assets/mosul/runtime/sprites/rendered"
+    "modernerKrieg/assets/shared/runtime/sprites/rendered"
   ],
   "derived_runtime_inputs": {
     "scenario_asset_keys": [
@@ -105,6 +106,7 @@
   },
   "excluded_from_standalone_bundle": [
     "modernerKrieg/assets/mosul/source",
+    "modernerKrieg/assets/shared/source",
     "modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003/candidates",
     "modernerKrieg/build",
     "build",
