@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = MosulGameModel()
+    @StateObject private var audio = MosulAudioController()
     @State private var snapshotStatus = ""
     @State private var showHowToPlay = true
     @State private var activeCommandControlTip: CommandControlTip?
@@ -29,6 +30,9 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onAppear {
+            audio.configure(runtimeResources: model.runtimeResources)
         }
         .onChange(of: model.selectedUnit?.id) { _, _ in
             presentMovementCoachIfNeeded()
@@ -188,6 +192,8 @@ struct ContentView: View {
                 .accessibilityLabel("Cancel targeting")
             }
 
+            soundControls(includeVolume: true, includeShortcut: !showHowToPlay && model.playableSide != nil)
+
             Button {
                 handleCommandControl(.step, showTipFirst: !model.selectedUnitHasPendingOrder) {
                     model.step()
@@ -300,6 +306,10 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                Spacer(minLength: 12)
+
+                soundControls(includeVolume: false, includeShortcut: true)
             }
 
             Divider()
@@ -411,6 +421,8 @@ struct ContentView: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
+
+                soundControls(includeVolume: false, includeShortcut: true)
             }
 
             Divider()
@@ -467,6 +479,40 @@ struct ContentView: View {
         .keyboardShortcut(side == .usPatrol ? "1" : "2", modifiers: [.command])
         .accessibilityLabel("Start \(side.title)")
         .accessibilityHint(side.subtitle)
+    }
+
+    private func soundControls(includeVolume: Bool, includeShortcut: Bool) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                audio.toggleMuted()
+            } label: {
+                Image(systemName: audio.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .frame(width: 18, height: 18)
+            }
+            .disabled(audio.isDisabledByLaunchArgument)
+            .help(audio.isMuted ? "Unmute sound." : "Mute sound.")
+            .accessibilityLabel(audio.isMuted ? "Unmute sound" : "Mute sound")
+            .accessibilityHint("Toggles all MosulGame sound immediately.")
+            .accessibilityValue(audio.accessibilityValue)
+            .modifier(SoundKeyboardShortcut(enabled: includeShortcut))
+
+            if includeVolume {
+                Slider(
+                    value: Binding(
+                        get: { audio.masterVolume },
+                        set: { audio.setMasterVolume($0) }
+                    ),
+                    in: 0...1
+                )
+                .frame(width: 74)
+                .disabled(audio.isDisabledByLaunchArgument)
+                .help(audio.status.description)
+                .accessibilityLabel("Sound volume")
+                .accessibilityValue(audio.accessibilityValue)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Sound controls")
     }
 
     private var inspector: some View {
@@ -1284,6 +1330,18 @@ private enum CommandControlTip: String, Hashable, Identifiable {
             return "Writes a tactical map PNG to disk so you can inspect or share the current state."
         case .reset:
             return "Restarts the playable scenario for the current command side. It clears the current battle state."
+        }
+    }
+}
+
+private struct SoundKeyboardShortcut: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.keyboardShortcut("m", modifiers: [.command, .shift])
+        } else {
+            content
         }
     }
 }

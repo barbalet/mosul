@@ -259,6 +259,7 @@ run_with_watchdog() {
 run_with_watchdog "$TIMEOUT_SECONDS" \
   open -W -n "$APP_PATH" --args \
   --snapshot-evidence \
+  --disable-audio \
   --require-bundled-runtime \
   --snapshot-output "$OUTPUT_PATH" \
   --snapshot-report "$REPORT_PATH" \

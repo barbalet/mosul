@@ -20,6 +20,7 @@
     "MosulGame.xcodeproj/project.pbxproj",
     "Mac/Mosul/App/MosulApp.swift",
     "Mac/Mosul/App/MosulVersion.swift",
+    "Mac/Mosul/App/MosulAudioController.swift",
     "Mac/Mosul/App/MosulGameModel.swift",
     "Mac/Mosul/App/TacticalMapView.swift",
     "Mac/Mosul/Bridge/MosulEngineBridge.c",
@@ -30,9 +31,12 @@
     "modernerKrieg/assets/mosul/manifests/market_commercial_streets_2003_topology.json",
     "modernerKrieg/assets/mosul/manifests/mosul_2003_markers.markermanifest",
     "modernerKrieg/assets/mosul/manifests/mosul_2003_sprites.spritemanifest",
+    "modernerKrieg/assets/mosul/audio/mosul_audio_manifest.json",
+    "modernerKrieg/assets/mosul/audio/CREDITS.md",
     "modernerKrieg/game/mosul/scenarios/market_commercial_streets_2003.mkscenario"
   ],
   "required_directories": [
+    "modernerKrieg/assets/mosul/audio",
     "modernerKrieg/assets/mosul/runtime/maps/market_commercial_streets_2003",
     "modernerKrieg/assets/mosul/runtime/sprites/rendered"
   ],
@@ -53,6 +57,45 @@
     ],
     "sprite_render_manifest_array": "rendered",
     "sprite_render_manifest_path_key": "path"
+  },
+  "audio_runtime": {
+    "manifest": "modernerKrieg/assets/mosul/audio/mosul_audio_manifest.json",
+    "credits": "modernerKrieg/assets/mosul/audio/CREDITS.md",
+    "allowed_buses": [
+      "ambience",
+      "tactical",
+      "radio",
+      "ui"
+    ],
+    "allowed_kinds": [
+      "loop",
+      "one_shot",
+      "voice"
+    ],
+    "allowed_licenses": [
+      "CC0-1.0",
+      "CC-BY-3.0",
+      "CC-BY-4.0",
+      "Original",
+      "Commissioned",
+      "US-GOV-PD"
+    ],
+    "allowed_extensions": [
+      ".wav",
+      ".aif",
+      ".aiff",
+      ".caf",
+      ".m4a",
+      ".aac"
+    ],
+    "allowed_sample_rates": [
+      44100,
+      48000
+    ],
+    "allowed_channels": [
+      1,
+      2
+    ]
   },
   "excluded_from_standalone_bundle": [
     "modernerKrieg/assets/mosul/source",

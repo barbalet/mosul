@@ -10,6 +10,7 @@ struct MosulApp: App {
     private static let performanceBudgetArgument = "--performance-budget"
     private static let performanceReportArgument = "--performance-report"
     static let requireBundledRuntimeArgument = "--require-bundled-runtime"
+    static let disableAudioArgument = "--disable-audio"
 
     private let evidenceRequest: SnapshotController.EvidenceRequest?
     private let runtimeCheckRequested: Bool

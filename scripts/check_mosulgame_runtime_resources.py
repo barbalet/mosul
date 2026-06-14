@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import wave
 from pathlib import Path
 
 
@@ -40,6 +41,13 @@ def add_required(required: set[Path], relative_path: str) -> None:
 
 def add_moderner_krieg_required(required: set[Path], relative_path: str) -> None:
     required.add(moderner_krieg_path(relative_path))
+
+
+def relative_child(parent: str, child: str) -> str | None:
+    child_path = Path(child)
+    if child_path.is_absolute() or ".." in child_path.parts:
+        return None
+    return (Path(parent).parent / child_path).as_posix()
 
 
 def is_under(relative_path: str, directory: str) -> bool:
@@ -149,7 +157,151 @@ def collect_resources(inventory: dict[str, object], errors: list[str]) -> set[Pa
                     continue
                 add_moderner_krieg_required(required, value)
 
+    collect_audio_resources(inventory, required, errors)
     return required
+
+
+def collect_audio_resources(
+    inventory: dict[str, object],
+    required: set[Path],
+    errors: list[str]
+) -> None:
+    audio = inventory.get("audio_runtime", {})
+    if not isinstance(audio, dict):
+        errors.append("audio_runtime must be an object")
+        return
+
+    manifest_relative = audio.get("manifest")
+    credits_relative = audio.get("credits")
+    if not isinstance(manifest_relative, str) or not manifest_relative:
+        errors.append("audio_runtime.manifest is required")
+        return
+    if not isinstance(credits_relative, str) or not credits_relative:
+        errors.append("audio_runtime.credits is required")
+        return
+
+    add_required(required, manifest_relative)
+    add_required(required, credits_relative)
+
+    manifest_path = repo_path(manifest_relative)
+    if not manifest_path.exists():
+        return
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        errors.append(f"audio manifest is not valid JSON: {error}")
+        return
+
+    if manifest.get("schema_version") != 1:
+        errors.append("audio manifest schema_version must be 1")
+
+    assets = manifest.get("assets")
+    if not isinstance(assets, list):
+        errors.append("audio manifest assets must be an array")
+        return
+
+    allowed_buses = set(str(value) for value in audio.get("allowed_buses", []))
+    allowed_kinds = set(str(value) for value in audio.get("allowed_kinds", []))
+    allowed_licenses = set(str(value) for value in audio.get("allowed_licenses", []))
+    allowed_extensions = set(str(value).lower() for value in audio.get("allowed_extensions", []))
+    allowed_sample_rates = set(int(value) for value in audio.get("allowed_sample_rates", []))
+    allowed_channels = set(int(value) for value in audio.get("allowed_channels", []))
+    asset_ids: set[str] = set()
+
+    for index, entry in enumerate(assets):
+        if not isinstance(entry, dict):
+            errors.append(f"audio asset #{index + 1} must be an object")
+            continue
+
+        asset_id = entry.get("id")
+        prefix = f"audio asset {asset_id!r}" if isinstance(asset_id, str) and asset_id else f"audio asset #{index + 1}"
+        if not isinstance(asset_id, str) or not asset_id:
+            errors.append(f"{prefix} missing id")
+        elif asset_id in asset_ids:
+            errors.append(f"duplicate audio asset id: {asset_id}")
+        else:
+            asset_ids.add(asset_id)
+
+        file_value = entry.get("file")
+        if not isinstance(file_value, str) or not file_value:
+            errors.append(f"{prefix} missing file")
+            continue
+
+        asset_relative = relative_child(manifest_relative, file_value)
+        if asset_relative is None:
+            errors.append(f"{prefix} file must be relative to the audio manifest and stay inside that tree")
+            continue
+
+        extension = Path(asset_relative).suffix.lower()
+        if extension not in allowed_extensions:
+            errors.append(f"{prefix} has unsupported extension: {extension or '<none>'}")
+
+        add_required(required, asset_relative)
+        asset_path = repo_path(asset_relative)
+
+        bus = entry.get("bus")
+        if bus not in allowed_buses:
+            errors.append(f"{prefix} bus must be one of {sorted(allowed_buses)}")
+
+        kind = entry.get("kind")
+        if kind not in allowed_kinds:
+            errors.append(f"{prefix} kind must be one of {sorted(allowed_kinds)}")
+
+        license_id = entry.get("license")
+        if license_id not in allowed_licenses:
+            errors.append(f"{prefix} license is not release-approved: {license_id!r}")
+
+        attribution = str(entry.get("attribution", "")).strip()
+        source_url = str(entry.get("source_url", "")).strip()
+        if license_id in {"CC-BY-3.0", "CC-BY-4.0", "US-GOV-PD"} and (not attribution or not source_url):
+            errors.append(f"{prefix} requires attribution and source_url for license {license_id}")
+        if license_id in {"Original", "Commissioned"} and not attribution:
+            errors.append(f"{prefix} requires attribution for {license_id} audio")
+
+        if kind == "loop":
+            loop_points = entry.get("loop_points_seconds")
+            if not (
+                isinstance(loop_points, list)
+                and len(loop_points) == 2
+                and all(isinstance(value, (int, float)) for value in loop_points)
+                and loop_points[0] < loop_points[1]
+            ):
+                errors.append(f"{prefix} loop audio requires two increasing loop_points_seconds values")
+
+        if kind == "voice":
+            locale = str(entry.get("locale", "")).strip()
+            transcript = str(entry.get("transcript", "")).strip()
+            if not locale or not transcript:
+                errors.append(f"{prefix} voice audio requires locale and transcript")
+
+        for numeric_key in ("duration_seconds", "lufs"):
+            if numeric_key in entry and not isinstance(entry[numeric_key], (int, float)):
+                errors.append(f"{prefix} {numeric_key} must be numeric")
+
+        if asset_path.exists() and extension == ".wav":
+            validate_wave_asset(prefix, asset_path, allowed_sample_rates, allowed_channels, errors)
+
+
+def validate_wave_asset(
+    prefix: str,
+    asset_path: Path,
+    allowed_sample_rates: set[int],
+    allowed_channels: set[int],
+    errors: list[str]
+) -> None:
+    try:
+        with wave.open(str(asset_path), "rb") as wav:
+            sample_rate = wav.getframerate()
+            channels = wav.getnchannels()
+    except wave.Error as error:
+        errors.append(f"{prefix} is not a readable WAV file: {error}")
+        return
+
+    if sample_rate not in allowed_sample_rates:
+        errors.append(f"{prefix} WAV sample rate {sample_rate} is not in {sorted(allowed_sample_rates)}")
+    if channels not in allowed_channels:
+        errors.append(f"{prefix} WAV channel count {channels} is not in {sorted(allowed_channels)}")
 
 
 def bundled_runtime_relative_paths(inventory: dict[str, object], errors: list[str]) -> set[str]:

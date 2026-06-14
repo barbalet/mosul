@@ -183,6 +183,7 @@ runtime_check() {
   run_with_watchdog "$TIMEOUT_SECONDS" "$executable_path" \
     open -W -n "$app_path" --args \
     --check-runtime-resources \
+    --disable-audio \
     --require-bundled-runtime \
     --runtime-check-output "$output_path"
 }

@@ -154,6 +154,7 @@ smoke_mosulgame_outside_repo() {
 
   open -W -n "$copied_app_path" --args \
     --check-runtime-resources \
+    --disable-audio \
     --require-bundled-runtime \
     --runtime-check-output "$runtime_check_output"
 

@@ -162,6 +162,7 @@ START_MS="$(python3 -c 'import time; print(int(time.time() * 1000))')"
 run_with_watchdog "$TIMEOUT_SECONDS" \
   open -W -n "$APP_PATH" --args \
   --performance-budget \
+  --disable-audio \
   --require-bundled-runtime \
   --performance-report "$REPORT_PATH"
 END_MS="$(python3 -c 'import time; print(int(time.time() * 1000))')"
