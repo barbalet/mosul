@@ -117,6 +117,57 @@ The standalone build is done when:
 - Release packaging currently assumes the submodule source archive is attached,
   but the app bundle itself still needs its own curated runtime payload.
 
+## Soundscape Development Plan
+
+Estimate: 8 additional development cycles for a release-safe first audio pass.
+This is a playability and atmosphere track that can run after, or in parallel
+with, the remaining standalone release cycles once packaging stays stable. The
+technical specification lives in `docs/mosulgame_soundscape.md`.
+
+The first sound task is deliberately mute-first: MosulGame must expose an
+always-reachable main-window speaker control before ambience, radio, speech, or
+weapon layers become release defaults.
+
+### Soundscape Definition
+
+The first public soundscape is done when:
+
+- The command header exposes a speaker icon that immediately mutes every audio
+  bus, persists across relaunch, has `Command-Shift-M`, and reports clear
+  VoiceOver state.
+- Evidence, runtime-resource, performance, and release-check modes can launch
+  with audio disabled so CI is deterministic and silent.
+- Runtime audio assets live under the curated `modernerKrieg` runtime payload
+  and are copied into `Contents/Resources/mosul-runtime/` with the maps,
+  manifests, sprites, and markers.
+- An audio manifest records every sound id, bus, file path, license,
+  attribution, source URL, transcript/locale where relevant, duration, loop
+  metadata, and loudness target.
+- The app has a small `AVAudioEngine` layer with master, ambience, tactical,
+  radio, and UI buses.
+- Gameplay-critical audio is driven by structured state/events, not by parsing
+  player-facing strings.
+- Ambient city, engine, Iraqi civilian murmur, U.S. radio, contact, fire,
+  objective, and civilian-risk cues all have visual or textual equivalents.
+- Fog of war is respected: sound never reveals hidden units or precise hostile
+  locations that the selected side cannot see.
+- The shipped asset set uses release-compatible rights only: original work,
+  commissioned work, CC0, CC BY with attribution, or audited public-domain U.S.
+  Government material.
+
+### Soundscape Cycles
+
+| Cycle | Status | Theme | Technical Work | Exit Criteria |
+| --- | --- | --- | --- | --- |
+| S1 | pending | Mute-first audio foundation | Add `MosulAudioController`, `MosulAudioSettings`, a header speaker toggle, persisted mute/master volume, `Command-Shift-M`, and `--disable-audio`. Use silent/no-op playback if no assets exist. | Main-window mute is always reachable, persists across relaunch, silences immediately, and all smoke/evidence modes can disable audio. |
+| S2 | pending | Runtime audio manifest | Add `modernerKrieg/assets/mosul/audio/`, `mosul_audio_manifest.json`, an audio credits document, and validator coverage in the runtime-resource script. | Missing audio files, unapproved licenses, absent attribution, and bad file formats fail validation before release packaging. |
+| S3 | pending | Mixer and loop engine | Build the `AVAudioEngine` graph with master, ambience, tactical, radio, and UI mixers; load loops from manifest; add safe start/stop/ducking behavior. | A bundled app can start, mute, unmute, and quit without audio crashes, log spam, or noticeable CPU impact. |
+| S4 | pending | Structured audio events | Add `MosulAudioEvent` and `MosulAudioContext`; emit events for side start, selection, order arm/place, step, contact reveal, fire, blocked LOS, civilian risk, objective, and after-action. | A scripted smoke path can verify expected audio events textually without requiring speakers. |
+| S5 | pending | Tactical feedback pass | Map UI and gameplay events to restrained one-shots: order confirmation, invalid command, tick resolution, contact reveal, route blocked, fire resolved, objective complete, risk warning. | A new player receives clearer feedback for movement, fire, watch/hold, contact, and risk while every cue has visual/text parity. |
+| S6 | pending | Ambient city and engines | Add low/high city beds, generator/engine layers, zoom/context mixing, and movement/transit accents. | The map feels alive at low volume, changes with zoom/tension, and never reveals hidden tactical information. |
+| S7 | pending | Speech and radio | Add reviewed Iraqi civilian murmur beds and sparse U.S. radio callouts with transcripts, captions for gameplay-critical lines, cooldowns, and license metadata. | Speech improves place and command clarity without becoming repetitive, stereotyped, or necessary for play. |
+| S8 | pending | Audio QA and release hardening | Add audio evidence report, accessibility checks, clean-machine bundle checks, size budget, credits review, and release documentation. | Release DMGs include validated audio assets and credits; muted mode, no-audio launch, and normal playback all pass QA. |
+
 ## Current Public Baseline
 
 - The public README describes the 2003 Market / Commercial Streets demo direction and the Mac/frontend split.
